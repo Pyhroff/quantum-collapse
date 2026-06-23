@@ -1,0 +1,1223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Quantum Collapse — CRQC Cascade Simulator</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap" rel="stylesheet">
+<script src="https://d3js.org/d3.v7.min.js"></script>
+<style>
+/* ──────────────────────────────────────────────────────
+   RESET
+────────────────────────────────────────────────────── */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+
+/* ──────────────────────────────────────────────────────
+   DESIGN TOKENS — Quantum Void
+   Nothing here should look like the CMD-green terminal
+────────────────────────────────────────────────────── */
+:root{
+  /* backgrounds */
+  --void:   #03000c;
+  --deep:   #060015;
+  --panel:  rgba(5,0,18,0.9);
+  --card:   rgba(8,0,25,0.75);
+
+  /* borders */
+  --gb:     rgba(140,30,210,0.22);
+  --gb-hi:  rgba(190,60,255,0.55);
+
+  /* accent palette */
+  --mag:    #c400e8;   /* electric magenta — primary */
+  --mag-d:  #9900b3;
+  --teal:   #00f5e4;   /* quantum teal — secondary */
+  --violet: #7c3aed;   /* deep violet — tertiary */
+
+  /* state colours */
+  --red:    #ff1744;
+  --red-g:  rgba(255,23,68,0.18);
+  --gold:   #ffca28;
+  --gold-g: rgba(255,202,40,0.18);
+  --lime:   #00e676;
+  --lime-g: rgba(0,230,118,0.12);
+
+  /* text */
+  --tx:     #8a80b5;   /* body — muted violet-grey */
+  --tx-b:   #ede8ff;   /* bright — near-white with violet */
+  --tx-d:   #2a1050;   /* dim labels */
+
+  /* typography */
+  --ui:     'Inter',system-ui,sans-serif;
+  --mono:   'Space Mono','Courier New',monospace;
+
+  /* radii */
+  --r4:4px; --r6:6px; --r8:8px;
+}
+
+/* ──────────────────────────────────────────────────────
+   BASE
+────────────────────────────────────────────────────── */
+html,body{height:100%;background:var(--void);color:var(--tx);font-family:var(--ui);overflow:hidden}
+
+/* ──────────────────────────────────────────────────────
+   APP SHELL
+────────────────────────────────────────────────────── */
+#app{display:flex;flex-direction:column;height:100vh}
+#main{display:flex;flex:1;overflow:hidden}
+
+/* ──────────────────────────────────────────────────────
+   HEADER
+────────────────────────────────────────────────────── */
+#hdr{
+  display:flex;align-items:center;gap:20px;
+  padding:9px 22px;
+  background:var(--panel);
+  border-bottom:1px solid var(--gb);
+  backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  flex-shrink:0;z-index:20;
+  position:relative;
+}
+/* bottom accent line */
+#hdr::after{
+  content:'';position:absolute;bottom:0;left:0;right:0;height:1px;
+  background:linear-gradient(to right,transparent,var(--mag),var(--teal),transparent);
+  opacity:0.5;
+}
+.brand{display:flex;flex-direction:column;gap:2px}
+.brand-title{
+  font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:8px;
+  color:var(--teal);text-shadow:0 0 30px rgba(0,245,228,.45);line-height:1;
+}
+.brand-sub{font-size:9px;letter-spacing:3px;color:var(--tx-d);font-family:var(--mono)}
+.hdr-sep{width:1px;height:34px;background:var(--gb);flex-shrink:0}
+
+/* metric chips */
+.chips{display:flex;gap:8px}
+.chip{
+  display:flex;flex-direction:column;align-items:center;
+  padding:5px 14px;min-width:72px;gap:2px;
+  background:rgba(140,30,210,.05);
+  border:1px solid var(--gb);border-radius:var(--r6);
+  transition:border-color .2s;
+}
+.chip:hover{border-color:rgba(140,30,210,.5)}
+.cv{
+  font-family:var(--mono);font-size:17px;font-weight:700;
+  color:var(--tx-b);line-height:1;transition:color .4s,text-shadow .4s;
+}
+.cv.danger{color:var(--red);text-shadow:0 0 16px var(--red-g)}
+.cv.warn  {color:var(--gold);text-shadow:0 0 12px var(--gold-g)}
+.cv.safe  {color:var(--lime);text-shadow:0 0 12px var(--lime-g)}
+.cl{font-size:8px;letter-spacing:1.5px;color:var(--tx-d)}
+
+.hdr-status{margin-left:auto;display:flex;align-items:center;gap:8px}
+.sdot{width:7px;height:7px;border-radius:50%;background:var(--tx-d);flex-shrink:0;transition:all .3s}
+.sdot.ok  {background:var(--lime); box-shadow:0 0 10px rgba(0,230,118,.7)}
+.sdot.err {background:var(--red);  box-shadow:0 0 10px var(--red-g)}
+.sdot.run {background:var(--gold); animation:blink 1s ease-in-out infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:.25}}
+.stxt{font-size:10px;color:var(--tx-d);font-family:var(--mono)}
+
+/* ──────────────────────────────────────────────────────
+   GRAPH WRAP  — animated nebula bg
+────────────────────────────────────────────────────── */
+#gw{
+  flex:1;position:relative;overflow:hidden;
+  background:var(--void);
+  /* subtle grid */
+  background-image:
+    linear-gradient(rgba(140,30,210,.04) 1px,transparent 1px),
+    linear-gradient(90deg,rgba(140,30,210,.04) 1px,transparent 1px);
+  background-size:48px 48px;
+}
+/* nebula orbs */
+#gw::before{
+  content:'';position:absolute;inset:0;pointer-events:none;
+  background:
+    radial-gradient(ellipse at 25% 35%,rgba(140,30,210,.1) 0%,transparent 55%),
+    radial-gradient(ellipse at 75% 65%,rgba(0,200,188,.08) 0%,transparent 50%);
+  animation:nebula 28s ease-in-out infinite alternate;
+}
+@keyframes nebula{
+  0%  {transform:translate(0,0) scale(1)}
+  50% {transform:translate(30px,-20px) scale(1.06)}
+  100%{transform:translate(-15px,15px) scale(0.97)}
+}
+#graph{width:100%;height:100%}
+
+/* ── floating overlays ─────────── */
+#cascade-badge{
+  position:absolute;top:14px;left:50%;transform:translateX(-50%);
+  background:var(--panel);border:1px solid rgba(255,202,40,.35);
+  padding:7px 20px;border-radius:20px;backdrop-filter:blur(16px);
+  font-family:var(--mono);font-size:11px;color:var(--gold);letter-spacing:2px;
+  opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap;
+  box-shadow:0 0 20px rgba(255,202,40,.15);
+}
+#cascade-badge.show{opacity:1}
+
+#btn-fit{
+  position:absolute;bottom:18px;right:18px;
+  background:var(--panel);border:1px solid var(--gb);border-radius:var(--r6);
+  padding:7px 12px;backdrop-filter:blur(12px);
+  font-family:var(--mono);font-size:10px;color:var(--tx);letter-spacing:1px;
+  cursor:pointer;transition:all .18s;
+}
+#btn-fit:hover{border-color:var(--mag);color:var(--mag);box-shadow:0 0 14px rgba(196,0,232,.15)}
+
+/* legend */
+#legend{
+  position:absolute;top:14px;left:14px;
+  background:var(--panel);border:1px solid var(--gb);border-radius:var(--r8);
+  padding:11px 13px;backdrop-filter:blur(16px);pointer-events:none;
+}
+.leg{display:flex;align-items:center;gap:7px;margin:3px 0}
+.ldot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.llbl{font-size:9px;letter-spacing:1.5px;color:var(--tx-d);font-family:var(--mono)}
+
+/* node detail card */
+#ncard{
+  position:absolute;bottom:18px;left:18px;width:218px;
+  background:var(--panel);border:1px solid var(--gb);border-radius:var(--r8);
+  padding:14px;backdrop-filter:blur(20px);-webkit-backdrop-filter:blur(20px);
+  pointer-events:none;opacity:0;transition:opacity .2s;
+}
+#ncard.vis{opacity:1}
+.nc-name{font-family:var(--mono);font-size:14px;font-weight:700;color:var(--teal);margin-bottom:10px}
+.nc-row{display:flex;justify-content:space-between;align-items:center;padding:4px 0;border-bottom:1px solid rgba(80,30,120,.3)}
+.nc-row:last-of-type{border:none}
+.nc-lbl{font-size:9px;color:var(--tx-d);letter-spacing:.5px}
+.nc-val{font-family:var(--mono);font-size:10px;color:var(--tx)}
+.nc-bwrap{height:3px;background:rgba(80,30,120,.35);border-radius:2px;margin:3px 0 7px}
+.nc-bar{height:100%;border-radius:2px;transition:width .3s}
+.nc-badge{margin-top:8px;padding:4px 8px;border-radius:var(--r4);text-align:center;font-size:10px;font-weight:700;letter-spacing:1.5px;font-family:var(--mono)}
+.nc-badge.op  {background:rgba(0,245,228,.06); color:var(--teal);  border:1px solid rgba(0,245,228,.2)}
+.nc-badge.fail{background:var(--red-g);         color:var(--red);   border:1px solid rgba(255,23,68,.3)}
+.nc-badge.seed{background:var(--gold-g);        color:var(--gold);  border:1px solid rgba(255,202,40,.3)}
+.nc-badge.surv{background:var(--lime-g);        color:var(--lime);  border:1px solid rgba(0,230,118,.3)}
+
+/* ──────────────────────────────────────────────────────
+   SIDEBAR
+────────────────────────────────────────────────────── */
+#sb{
+  width:300px;flex-shrink:0;
+  display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;
+  background:var(--deep);border-left:1px solid var(--gb);
+}
+#sb::-webkit-scrollbar{width:3px}
+#sb::-webkit-scrollbar-track{background:transparent}
+#sb::-webkit-scrollbar-thumb{background:var(--gb);border-radius:2px}
+
+.panel{padding:14px 15px;border-bottom:1px solid rgba(60,15,100,.5)}
+
+/* panel title with gradient rule */
+.ptitle{
+  font-family:var(--mono);font-size:9px;letter-spacing:3.5px;color:var(--mag);
+  margin-bottom:13px;display:flex;align-items:center;gap:8px;
+}
+.ptitle::after{content:'';flex:1;height:1px;background:linear-gradient(to right,rgba(196,0,232,.4),transparent)}
+
+/* ── scenarios ─────────── */
+.scen-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.scen-btn{
+  padding:9px 6px;background:rgba(140,30,210,.04);
+  border:1px solid var(--gb);border-radius:var(--r6);
+  color:var(--tx);font-size:10px;font-family:var(--ui);
+  cursor:pointer;transition:all .18s;text-align:center;line-height:1.4;
+}
+.scen-btn:hover{background:rgba(196,0,232,.1);border-color:var(--mag);color:var(--tx-b)}
+.scen-btn.active{
+  background:rgba(196,0,232,.13);border-color:var(--mag);
+  color:var(--mag);box-shadow:0 0 14px rgba(196,0,232,.12);
+}
+.scen-icon{display:block;font-size:15px;margin-bottom:3px}
+
+/* ── form elements ─────── */
+.ctrl-lbl{
+  font-size:9px;letter-spacing:1.5px;color:var(--tx-d);
+  display:flex;justify-content:space-between;align-items:center;
+  margin-bottom:5px;margin-top:12px;
+}
+.ctrl-lbl:first-child{margin-top:0}
+.ctrl-v{font-family:var(--mono);font-size:13px;color:var(--teal);font-weight:700}
+
+select{
+  width:100%;background:rgba(2,0,10,.9);border:1px solid var(--gb);
+  color:var(--tx);padding:7px 10px;font-family:var(--mono);font-size:11px;
+  border-radius:var(--r4);cursor:pointer;outline:none;transition:border-color .15s;
+}
+select:focus{border-color:var(--mag)}
+select option{background:#080015;color:var(--tx)}
+
+input[type=range]{
+  width:100%;accent-color:var(--mag);cursor:pointer;
+  margin-top:4px;height:4px;
+}
+.range-ends{display:flex;justify-content:space-between;font-size:9px;color:var(--tx-d);margin-top:3px}
+
+.tog{display:flex;gap:5px;margin-top:4px}
+.tb{
+  flex:1;padding:5px;text-align:center;
+  background:rgba(2,0,10,.9);border:1px solid var(--gb);border-radius:var(--r4);
+  color:var(--tx-d);font-size:10px;cursor:pointer;transition:all .16s;font-family:var(--mono);
+}
+.tb:hover{color:var(--tx)}
+.tb.on-mag   {background:rgba(196,0,232,.1); border-color:var(--mag);   color:var(--mag)}
+.tb.on-teal  {background:rgba(0,245,228,.08);border-color:var(--teal);  color:var(--teal)}
+.tb.on-violet{background:rgba(124,58,237,.1);border-color:var(--violet);color:var(--violet)}
+
+.btn-row{display:flex;gap:6px;margin-top:10px}
+.btn{
+  flex:1;padding:9px;font-family:var(--mono);font-size:10px;letter-spacing:1.5px;
+  cursor:pointer;border-radius:var(--r4);border:1px solid;transition:all .18s;font-weight:700;
+}
+#run-btn {background:rgba(0,245,228,.06); border-color:rgba(0,245,228,.4);color:var(--teal)}
+#run-btn:hover:not(:disabled){background:rgba(0,245,228,.16);box-shadow:0 0 20px rgba(0,245,228,.15)}
+#run-btn:disabled{opacity:.3;cursor:not-allowed}
+#reset-btn{background:rgba(255,23,68,.04);border-color:rgba(255,23,68,.22);color:rgba(255,100,130,.8)}
+#reset-btn:hover{background:rgba(255,23,68,.12)}
+
+/* ── metric cards ───────── */
+.metrics{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.mcard{padding:9px 10px;background:rgba(2,0,10,.6);border:1px solid rgba(50,15,80,.5);border-radius:var(--r4)}
+.mval{font-family:var(--mono);font-size:19px;font-weight:700;color:var(--tx-b);line-height:1;transition:color .4s}
+.mval.danger{color:var(--red);text-shadow:0 0 14px var(--red-g)}
+.mval.warn  {color:var(--gold)}
+.mval.safe  {color:var(--lime)}
+.mlbl{font-size:9px;color:var(--tx-d);margin-top:3px;letter-spacing:.5px}
+
+/* failed list */
+#fl-scroll{max-height:136px;overflow-y:auto;margin-top:9px}
+#fl-scroll::-webkit-scrollbar{width:3px}
+#fl-scroll::-webkit-scrollbar-thumb{background:var(--gb)}
+.ftag{
+  display:flex;align-items:center;gap:7px;padding:4px 8px;margin:3px 0;
+  background:rgba(255,23,68,.06);border:1px solid rgba(255,23,68,.16);border-radius:var(--r4);font-size:10px;
+}
+.fdot{width:6px;height:6px;border-radius:50%;background:var(--red);flex-shrink:0}
+.fname{color:rgba(255,150,170,.9);font-family:var(--mono)}
+.fsec{color:var(--tx-d);margin-left:auto;font-size:9px}
+
+/* ── cascade timeline ───── */
+#timeline{margin-top:10px}
+.tl-level{display:flex;gap:8px;margin:5px 0;font-size:10px}
+.tl-marker{
+  font-family:var(--mono);font-size:9px;color:var(--mag);
+  background:rgba(196,0,232,.1);border:1px solid rgba(196,0,232,.25);
+  border-radius:3px;padding:2px 6px;white-space:nowrap;align-self:flex-start;flex-shrink:0;
+}
+.tl-nodes{display:flex;flex-wrap:wrap;gap:4px}
+.tl-node{
+  font-family:var(--mono);font-size:9px;padding:2px 6px;border-radius:3px;
+  background:rgba(255,23,68,.08);border:1px solid rgba(255,23,68,.2);color:rgba(255,150,170,.85);
+}
+.tl-node.seed-node{
+  background:rgba(255,202,40,.08);border-color:rgba(255,202,40,.25);color:var(--gold);
+}
+.tl-note{font-size:9px;color:var(--tx-d);font-style:italic;margin-top:4px}
+
+/* ── sensitivity chart ───── */
+#sens-svg{width:100%;display:block}
+@keyframes draw-line{to{stroke-dashoffset:0}}
+
+/* ── mosca calculator ───── */
+.mosca-eq-big{
+  font-family:var(--mono);font-size:16px;color:var(--mag);
+  text-align:center;margin:8px 0;letter-spacing:2px;
+}
+.mosca-sliders{display:flex;flex-direction:column;gap:8px;margin-top:4px}
+.m-slider-row{display:flex;flex-direction:column;gap:3px}
+.m-slider-lbl{
+  display:flex;justify-content:space-between;
+  font-size:9px;color:var(--tx-d);letter-spacing:1px;
+}
+.m-slider-lbl span{font-family:var(--mono);font-size:12px;color:var(--tx);font-weight:700}
+.m-bar-wrap{position:relative;height:20px;margin-top:8px}
+.m-track{height:6px;background:rgba(80,30,120,.35);border-radius:3px;position:absolute;top:7px;left:0;right:0}
+.m-xy-bar{height:6px;background:linear-gradient(to right,var(--mag),var(--violet));border-radius:3px;position:absolute;top:7px;left:0;transition:width .3s}
+.m-z-mark{position:absolute;top:0;width:2px;height:20px;background:var(--teal);border-radius:1px;transform:translateX(-50%);transition:left .3s}
+.m-z-mark::after{
+  content:'Z';position:absolute;top:-14px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8px;color:var(--teal);
+}
+.mosca-verdict{
+  margin-top:12px;padding:7px 10px;border-radius:var(--r6);text-align:center;
+  font-family:var(--mono);font-size:11px;font-weight:700;letter-spacing:1.5px;
+}
+.mv-danger{background:var(--red-g);color:var(--red);border:1px solid rgba(255,23,68,.3)}
+.mv-safe  {background:var(--lime-g);color:var(--lime);border:1px solid rgba(0,230,118,.3)}
+.mosca-note{font-size:9px;color:var(--tx-d);line-height:1.65;margin-top:8px}
+
+/* ──────────────────────────────────────────────────────
+   NODE CSS ANIMATIONS  (no rAF needed — CSS-driven)
+────────────────────────────────────────────────────── */
+@keyframes node-pop{
+  0%  {transform:scale(1)}
+  35% {transform:scale(1.42)}
+  100%{transform:scale(1)}
+}
+.node-pop{
+  animation:node-pop .5s cubic-bezier(.34,1.56,.64,1);
+  transform-origin:center;transform-box:fill-box;
+}
+@keyframes glow-pulse{
+  0%,100%{opacity:.2}
+  50%{opacity:.55}
+}
+.glow-ring{animation:glow-pulse 2.4s ease-in-out infinite}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ══ HEADER ══════════════════════════════════════════ -->
+<div id="hdr">
+  <div class="brand">
+    <div class="brand-title">QUANTUM COLLAPSE</div>
+    <div class="brand-sub">CRQC INFRASTRUCTURE CASCADE SIMULATOR · V1</div>
+  </div>
+  <div class="hdr-sep"></div>
+  <div class="chips">
+    <div class="chip"><div class="cv" id="h-fail">—</div><div class="cl">FAILED</div></div>
+    <div class="chip"><div class="cv" id="h-crit">—</div><div class="cl">CRITICAL ↓</div></div>
+    <div class="chip"><div class="cv" id="h-pre">—</div><div class="cl">PRE-RISK</div></div>
+    <div class="chip"><div class="cv" id="h-post">—</div><div class="cl">POST-RISK</div></div>
+  </div>
+  <div class="hdr-status">
+    <div class="sdot" id="sdot"></div>
+    <span class="stxt" id="stxt">connecting...</span>
+  </div>
+</div>
+
+<!-- ══ MAIN ════════════════════════════════════════════ -->
+<div id="main">
+
+  <!-- graph area -->
+  <div id="gw">
+    <svg id="graph"></svg>
+
+    <div id="legend">
+      <div class="leg"><div class="ldot" style="background:var(--red)"></div><div class="llbl">FAILED</div></div>
+      <div class="leg"><div class="ldot" style="background:var(--gold)"></div><div class="llbl">SEED</div></div>
+      <div class="leg"><div class="ldot" style="background:var(--lime)"></div><div class="llbl">SURVIVED</div></div>
+      <div class="leg" style="margin-top:6px;padding-top:6px;border-top:1px solid var(--gb)">
+        <div class="llbl" style="font-size:8px">SIZE ∝ CRITICALITY &nbsp;·&nbsp; DRAG TO EXPLORE</div>
+      </div>
+    </div>
+
+    <div id="cascade-badge">⚡ CASCADE IN PROGRESS</div>
+    <button id="btn-fit">⊡ FIT</button>
+
+    <!-- node detail card -->
+    <div id="ncard">
+      <div class="nc-name" id="nc-name">—</div>
+      <div class="nc-row"><span class="nc-lbl">SECTOR</span><span class="nc-val" id="nc-sector">—</span></div>
+      <div class="nc-row"><span class="nc-lbl">CRYPTO</span><span class="nc-val" id="nc-crypto">—</span></div>
+      <div class="nc-row"><span class="nc-lbl">CRITICALITY</span><span class="nc-val" id="nc-crit">—</span></div>
+      <div class="nc-row"><span class="nc-lbl">PQC MIGRATION</span><span class="nc-val" id="nc-mig">—</span></div>
+      <div class="nc-bwrap"><div class="nc-bar" id="nc-bar"></div></div>
+      <div class="nc-row"><span class="nc-lbl">RISK SCORE</span><span class="nc-val" id="nc-risk">—</span></div>
+      <div class="nc-badge op" id="nc-badge">OPERATIONAL</div>
+    </div>
+  </div>
+
+  <!-- sidebar -->
+  <div id="sb">
+
+    <!-- SCENARIOS -->
+    <div class="panel">
+      <div class="ptitle">SCENARIOS</div>
+      <div class="scen-grid">
+        <button class="scen-btn active" data-seeds="GlobalCA"><span class="scen-icon">🎯</span>Tier-1 CA</button>
+        <button class="scen-btn" data-seeds="GlobalCA,RegionalCA"><span class="scen-icon">⛓️</span>Dual CA</button>
+        <button class="scen-btn" data-seeds="CloudX"><span class="scen-icon">☁️</span>Cloud Cascade</button>
+        <button class="scen-btn" data-seeds="CardNetwork"><span class="scen-icon">💳</span>Payment Collapse</button>
+      </div>
+    </div>
+
+    <!-- SIMULATION -->
+    <div class="panel">
+      <div class="ptitle">SIMULATION</div>
+      <div class="ctrl-lbl">SEED NODE</div>
+      <select id="seed-sel"></select>
+
+      <div class="ctrl-lbl">
+        <span>PQC RESIST THRESHOLD</span>
+        <span class="ctrl-v"><span id="thr-val">100</span>%</span>
+      </div>
+      <input type="range" id="thr" min="0" max="100" value="100" step="5">
+      <div class="range-ends"><span>0 — all collapse</span><span>100 — PQC only</span></div>
+
+      <div class="ctrl-lbl">CASCADE SPEED</div>
+      <div class="tog" id="speed-tog">
+        <button class="tb" data-ms="900">SLOW</button>
+        <button class="tb on-teal" data-ms="420">NORMAL</button>
+        <button class="tb" data-ms="140">FAST</button>
+      </div>
+
+      <div class="ctrl-lbl">NODE COLOR MODE</div>
+      <div class="tog">
+        <button class="tb on-violet" id="v-sector">SECTOR</button>
+        <button class="tb" id="v-risk">RISK HEAT</button>
+      </div>
+
+      <div class="btn-row">
+        <button class="btn" id="run-btn">▶ RUN CASCADE</button>
+        <button class="btn" id="reset-btn">↺</button>
+      </div>
+    </div>
+
+    <!-- IMPACT -->
+    <div class="panel">
+      <div class="ptitle">IMPACT</div>
+      <div class="metrics">
+        <div class="mcard"><div class="mval" id="m-fail">—</div><div class="mlbl">ENTITIES DOWN</div></div>
+        <div class="mcard"><div class="mval" id="m-crit">—</div><div class="mlbl">CRITICAL (≥4)</div></div>
+        <div class="mcard"><div class="mval" id="m-sec">—</div><div class="mlbl">SECTORS HIT</div></div>
+        <div class="mcard"><div class="mval" id="m-post">—</div><div class="mlbl">POST RISK</div></div>
+      </div>
+      <div id="fl-scroll"></div>
+    </div>
+
+    <!-- CASCADE TIMELINE — new feature -->
+    <div class="panel">
+      <div class="ptitle">CASCADE TIMELINE</div>
+      <div class="tl-note" id="tl-empty">Run a cascade to see the failure sequence.</div>
+      <div id="timeline"></div>
+    </div>
+
+    <!-- MIGRATION SENSITIVITY -->
+    <div class="panel">
+      <div class="ptitle">MIGRATION SENSITIVITY</div>
+      <div style="font-size:9px;color:var(--tx-d);margin-bottom:8px;line-height:1.65">
+        entities failed vs. % migration needed to survive upstream failure
+      </div>
+      <svg id="sens-svg" style="height:112px"></svg>
+    </div>
+
+    <!-- MOSCA CALCULATOR — new feature -->
+    <div class="panel">
+      <div class="ptitle">MOSCA'S INEQUALITY</div>
+      <div class="mosca-eq-big">X + Y &gt; Z → LATE</div>
+      <div class="mosca-sliders">
+        <div class="m-slider-row">
+          <div class="m-slider-lbl"><span>X — Harvest window (yrs)</span><span id="mv-x">5</span></div>
+          <input type="range" class="mosca-r" id="mx" min="1" max="20" value="5">
+        </div>
+        <div class="m-slider-row">
+          <div class="m-slider-lbl"><span>Y — Migration time (yrs)</span><span id="mv-y">10</span></div>
+          <input type="range" class="mosca-r" id="my" min="1" max="20" value="10">
+        </div>
+        <div class="m-slider-row">
+          <div class="m-slider-lbl"><span>Z — CRQC arrival (yrs)</span><span id="mv-z">12</span></div>
+          <input type="range" class="mosca-r" id="mz" min="5" max="30" value="12">
+        </div>
+      </div>
+      <div class="m-bar-wrap">
+        <div class="m-track"></div>
+        <div class="m-xy-bar" id="m-xy-bar"></div>
+        <div class="m-z-mark" id="m-z-mark"></div>
+      </div>
+      <div class="mosca-verdict mv-danger" id="mosca-verdict">⚠ LATE BY 3 YEARS</div>
+      <div class="mosca-note">
+        This simulator models the <em>Y dependency graph</em> — how the infrastructure
+        migration picture changes from 5 % to 100 % in the sensitivity chart above.
+        Drag Z left to model an early CRQC arrival.
+      </div>
+    </div>
+
+  </div><!-- /sidebar -->
+</div><!-- /main -->
+</div><!-- /app -->
+
+<script>
+// ================================================================
+// SECTOR PALETTE  (quantum-void compatible)
+// ================================================================
+const SCOL = {
+  'Certificate Authority': '#b388ff',
+  'Government PKI':        '#7c4dff',
+  'Banking':               '#40c4ff',
+  'Payment Network':       '#18ffff',
+  'Cloud Provider':        '#ff9100',
+  'Telecom':               '#ffd740',
+  'Healthcare':            '#f48fb1',
+  'Emergency Services':    '#ff5252',
+  'Government Service':    '#69f0ae',
+  'Crypto Exchange':       '#ffd600',
+  'Power Grid':            '#90a4ae',
+  'Consumers':             '#546e7a',
+};
+
+const RISK_SCALE = d3.scaleSequential()
+  .domain([0, 1])
+  .interpolator(d3.interpolateRgb('#1a0540','#ff1744'));
+
+// ================================================================
+// STATE
+// ================================================================
+const S = {
+  graph:       null,   // graphData from API
+  sensData:    null,
+  failed:      new Set(),
+  seeds:       [],
+  levels:      [],     // cascade levels for timeline
+  speedMs:     420,
+  view:        'sector',
+  animating:   false,
+  pinnedNode:  null,
+};
+
+let nodeGs, linkEls, zoomBehavior, svgRoot;
+
+// ================================================================
+// BOOT
+// ================================================================
+async function boot() {
+  try {
+    const r = await fetch('http://localhost:8000/api/graph');
+    if (!r.ok) throw new Error();
+    S.graph = await r.json();
+    setStatus('ok', `${S.graph.nodes.length} nodes · ${S.graph.edges.length} edges`);
+    populateSelect(S.graph.nodes);
+    // force correct initial state regardless of browser range-input quirks
+    const thrEl = document.getElementById('thr');
+    thrEl.value = 100;
+    document.getElementById('thr-val').textContent = '100';
+    drawGraph(S.graph);
+    headerChips([], S.graph.global_risk, S.graph.global_risk);
+    document.getElementById('h-pre').textContent = S.graph.global_risk.toFixed(3);
+    await loadSens('GlobalCA');
+    updateMosca();
+  } catch {
+    setStatus('err', 'backend offline — cd backend && uvicorn server:app');
+  }
+}
+
+function setStatus(state, msg) {
+  document.getElementById('sdot').className = `sdot ${state}`;
+  document.getElementById('stxt').textContent = msg;
+}
+
+function populateSelect(nodes) {
+  const sel = document.getElementById('seed-sel');
+  sel.innerHTML = '';
+  nodes.forEach(n => {
+    const o = document.createElement('option');
+    o.value = n.id;
+    o.textContent = `${n.id}  (${n.sector})`;
+    sel.appendChild(o);
+  });
+  sel.value = 'GlobalCA';
+  sel.addEventListener('change', () => {
+    clearScen();
+    const btn = document.querySelector(`.scen-btn[data-seeds="${sel.value}"]`);
+    if (btn) btn.classList.add('active');
+    loadSens(sel.value);
+  });
+}
+
+// ================================================================
+// D3 GRAPH
+// ================================================================
+function nodeR(d) { return 12 + d.criticality * 4; }
+
+function gradKey(sector) { return 'gk_' + sector.replace(/\s+/g,'_'); }
+
+function lighten(hex, f) {
+  const c = d3.color(hex); if (!c) return hex;
+  return d3.rgb(Math.min(255,c.r+255*f), Math.min(255,c.g+255*f), Math.min(255,c.b+255*f)).formatHex();
+}
+function darken(hex, f) {
+  const c = d3.color(hex); if (!c) return hex;
+  return d3.rgb(Math.max(0,c.r-255*f), Math.max(0,c.g-255*f), Math.max(0,c.b-255*f)).formatHex();
+}
+
+function buildDefs(defs) {
+  // sector radial gradients
+  Object.entries(SCOL).forEach(([sec, col]) => {
+    const g = defs.append('radialGradient').attr('id', gradKey(sec))
+      .attr('cx','35%').attr('cy','30%').attr('r','68%');
+    g.append('stop').attr('offset','0%')  .attr('stop-color', lighten(col,.36));
+    g.append('stop').attr('offset','100%').attr('stop-color', darken(col,.28));
+  });
+
+  const mk = (id,l,d) => {
+    const g = defs.append('radialGradient').attr('id',id).attr('cx','35%').attr('cy','30%').attr('r','68%');
+    g.append('stop').attr('offset','0%')  .attr('stop-color',l);
+    g.append('stop').attr('offset','100%').attr('stop-color',d);
+  };
+  mk('gk_failed','#ff6070','#8b0020');
+  mk('gk_seed',  '#ffe066','#8b5a00');
+  mk('gk_safe',  '#80ffb8','#005b38');
+
+  // glow filter
+  const fl = defs.append('filter').attr('id','glow').attr('x','-50%').attr('y','-50%').attr('width','200%').attr('height','200%');
+  fl.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','4').attr('result','b');
+  const m = fl.append('feMerge'); m.append('feMergeNode').attr('in','b'); m.append('feMergeNode').attr('in','SourceGraphic');
+
+  const fl2 = defs.append('filter').attr('id','glow2').attr('x','-80%').attr('y','-80%').attr('width','260%').attr('height','260%');
+  fl2.append('feGaussianBlur').attr('in','SourceGraphic').attr('stdDeviation','8').attr('result','b2');
+  const m2 = fl2.append('feMerge'); m2.append('feMergeNode').attr('in','b2'); m2.append('feMergeNode').attr('in','SourceGraphic');
+
+  // arrow
+  defs.append('marker').attr('id','arr').attr('viewBox','0 -5 10 10')
+    .attr('refX',26).attr('refY',0).attr('markerWidth',5).attr('markerHeight',5).attr('orient','auto')
+    .append('path').attr('d','M0,-5L10,0L0,5').attr('fill','rgba(140,30,210,.4)');
+}
+
+function drawGraph(data) {
+  const wrap = document.getElementById('gw');
+  const W = wrap.clientWidth, H = wrap.clientHeight;
+
+  const svg = d3.select('#graph').attr('viewBox', `0 0 ${W} ${H}`);
+  svg.selectAll('*').remove();
+
+  zoomBehavior = d3.zoom().scaleExtent([0.25,4.5]).on('zoom', ({transform}) => svgRoot.attr('transform', transform));
+  svg.call(zoomBehavior);
+
+  const defs = svg.append('defs');
+  buildDefs(defs);
+  svgRoot = svg.append('g');
+
+  const nodes = data.nodes.map(d => ({...d}));
+  const links = data.edges.map(d => ({...d}));
+
+  const sim = d3.forceSimulation(nodes)
+    .force('link',    d3.forceLink(links).id(d=>d.id).distance(130).strength(0.7))
+    .force('charge',  d3.forceManyBody().strength(-520))
+    .force('center',  d3.forceCenter(W/2, H/2))
+    .force('collide', d3.forceCollide().radius(d=>nodeR(d)+14));
+
+  linkEls = svgRoot.append('g').selectAll('line').data(links).join('line')
+    .attr('stroke','rgba(100,20,160,.35)')
+    .attr('stroke-width',1).attr('opacity',.6)
+    .attr('marker-end','url(#arr)');
+
+  const nG = svgRoot.append('g').selectAll('g').data(nodes).join('g')
+    .attr('cursor','pointer')
+    .call(d3.drag()
+      .on('start',(e,d)=>{ if(!e.active) sim.alphaTarget(.3).restart(); d.fx=d.x; d.fy=d.y; })
+      .on('drag', (e,d)=>{ d.fx=e.x; d.fy=e.y; })
+      .on('end',  (e,d)=>{ if(!e.active) sim.alphaTarget(0); d.fx=d.fy=null; }))
+    .on('click',(_, d)=>{
+      S.pinnedNode = d;
+      document.getElementById('seed-sel').value = d.id;
+      clearScen();
+      const btn = document.querySelector(`.scen-btn[data-seeds="${d.id}"]`);
+      if (btn) btn.classList.add('active');
+      loadSens(d.id);
+      renderNodeCard(d);
+    })
+    .on('mouseenter',(_, d)=>{ if (!S.pinnedNode) renderNodeCard(d); })
+    .on('mouseleave',()=>{ if (!S.pinnedNode) document.getElementById('ncard').classList.remove('vis'); });
+
+  nodeGs = nG;
+
+  // glow ring
+  nG.append('circle').attr('class','node-ring')
+    .attr('r', d=>nodeR(d)+8)
+    .attr('fill','none').attr('stroke','transparent').attr('stroke-width',2).attr('opacity',0);
+
+  // main sphere
+  nG.append('circle').attr('class','node-circ')
+    .attr('r', d=>nodeR(d))
+    .attr('fill', d=>`url(#${gradKey(d.sector)})`)
+    .attr('stroke', d=>SCOL[d.sector]||'#555')
+    .attr('stroke-width',1.8).attr('stroke-opacity',.65)
+    .attr('filter','url(#glow)');
+
+  // node name
+  nG.append('text').attr('text-anchor','middle').attr('dy','-0.25em')
+    .attr('font-size','9px').attr('font-family','Space Mono,monospace')
+    .attr('fill','rgba(255,255,255,.88)').attr('pointer-events','none')
+    .text(d=>d.id);
+
+  // crypto label
+  nG.append('text').attr('text-anchor','middle').attr('dy','1.1em')
+    .attr('font-size','7px').attr('font-family','Space Mono,monospace')
+    .attr('fill','rgba(255,255,255,.32)').attr('pointer-events','none')
+    .text(d=>d.crypto);
+
+  sim.on('tick',()=>{
+    linkEls.attr('x1',d=>d.source.x).attr('y1',d=>d.source.y)
+            .attr('x2',d=>d.target.x).attr('y2',d=>d.target.y);
+    nG.attr('transform',d=>`translate(${d.x},${d.y})`);
+  });
+}
+
+// ================================================================
+// RUN CASCADE
+// ================================================================
+document.getElementById('run-btn').addEventListener('click', runCascade);
+
+async function runCascade() {
+  if (!S.graph || S.animating) return;
+  const seeds = getSeeds().filter(id => S.graph.nodes.find(n=>n.id===id));
+  const thr   = +document.getElementById('thr').value;
+  if (!seeds.length) return;
+
+  S.animating = true; S.pinnedNode = null;
+  document.getElementById('ncard').classList.remove('vis');
+  document.getElementById('cascade-badge').classList.add('show');
+  document.getElementById('run-btn').disabled = true;
+  setStatus('run','cascade in progress...');
+
+  try {
+    const res = await fetch('http://localhost:8000/api/cascade', {
+      method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({seeds, resist_threshold: thr}),
+    });
+    if (!res.ok) throw new Error(await res.text());
+    const data = await res.json();
+    S.failed = new Set(data.failed);
+    S.seeds  = seeds;
+    S.levels = data.levels;
+
+    await animateCascade(seeds, data.levels, data.failed);
+
+    const post = postRisk(data.failed);
+    updateMetrics(data.failed, post);
+    headerChips(data.failed, S.graph.global_risk, post);
+    renderTimeline(seeds, data.levels);
+    setStatus('ok', `done — ${data.failed_count}/${data.total} entities failed`);
+  } catch(e) {
+    setStatus('err', `cascade error: ${e.message}`);
+  }
+
+  document.getElementById('cascade-badge').classList.remove('show');
+  document.getElementById('run-btn').disabled = false;
+  S.animating = false;
+}
+
+// ================================================================
+// CASCADE ANIMATION  (direct setAttribute — no D3 timers needed)
+// ================================================================
+async function animateCascade(seeds, levels, allFailed) {
+  // reset
+  nodeGs.each(function(d) {
+    const c = this.querySelector('.node-circ');
+    const r = this.querySelector('.node-ring');
+    c.setAttribute('fill', `url(#${gradKey(d.sector)})`);
+    c.setAttribute('stroke', SCOL[d.sector]||'#555');
+    c.setAttribute('stroke-opacity','0.4');
+    c.setAttribute('stroke-width','1.4');
+    c.removeAttribute('filter');
+    c.classList.remove('node-pop');
+    r.setAttribute('opacity','0');
+    r.setAttribute('stroke','transparent');
+    r.classList.remove('glow-ring');
+  });
+  linkEls.each(function() {
+    this.setAttribute('stroke','rgba(100,20,160,.35)');
+    this.setAttribute('stroke-width','1');
+    this.setAttribute('opacity','0.6');
+  });
+  await wait(180);
+
+  for (let lvl = 0; lvl < levels.length; lvl++) {
+    const ids    = levels[lvl];
+    const isSeed = lvl === 0;
+    const grad   = isSeed ? 'url(#gk_seed)' : 'url(#gk_failed)';
+    const stroke = isSeed ? '#ffca28' : '#ff1744';
+
+    ids.forEach((id, i) => {
+      setTimeout(() => {
+        nodeGs.each(function(d) {
+          if (d.id !== id) return;
+          const c = this.querySelector('.node-circ');
+          const r = this.querySelector('.node-ring');
+          c.setAttribute('fill',  grad);
+          c.setAttribute('stroke', stroke);
+          c.setAttribute('stroke-opacity','1');
+          c.setAttribute('stroke-width','2.4');
+          // CSS pop
+          c.classList.remove('node-pop');
+          void c.offsetWidth;
+          c.classList.add('node-pop');
+          // glow ring
+          r.setAttribute('stroke', stroke);
+          r.setAttribute('opacity','0.3');
+          r.classList.add('glow-ring');
+        });
+        // light edges
+        linkEls.each(function(e) {
+          if ((e.source.id??e.source) === id) {
+            this.setAttribute('stroke','rgba(255,23,68,.55)');
+            this.setAttribute('stroke-width','1.8');
+            this.setAttribute('opacity','0.9');
+          }
+        });
+      }, i * 60);
+    });
+
+    await wait(S.speedMs);
+  }
+
+  // survivors → lime
+  const lastDelay = (levels[levels.length-1]?.length??0)*60 + 120;
+  await wait(lastDelay);
+  const survivors = S.graph.nodes.map(n=>n.id).filter(id=>!allFailed.includes(id));
+  nodeGs.each(function(d) {
+    if (!survivors.includes(d.id)) return;
+    const c = this.querySelector('.node-circ');
+    c.setAttribute('fill','url(#gk_safe)');
+    c.setAttribute('stroke','#00e676');
+    c.setAttribute('stroke-opacity','0.9');
+    c.setAttribute('stroke-width','1.5');
+    c.removeAttribute('filter');
+  });
+}
+
+const wait = ms => new Promise(r => setTimeout(r, ms));
+
+// ================================================================
+// RESET
+// ================================================================
+document.getElementById('reset-btn').addEventListener('click', doReset);
+
+function doReset() {
+  if (!nodeGs || !S.graph) return;
+  S.failed.clear(); S.seeds=[]; S.levels=[]; S.pinnedNode=null;
+  document.getElementById('ncard').classList.remove('vis');
+
+  nodeGs.each(function(d) {
+    const c = this.querySelector('.node-circ');
+    const r = this.querySelector('.node-ring');
+    c.setAttribute('fill', `url(#${gradKey(d.sector)})`);
+    c.setAttribute('stroke', SCOL[d.sector]||'#555');
+    c.setAttribute('stroke-opacity','0.4');
+    c.setAttribute('stroke-width','1.4');
+    c.removeAttribute('filter');
+    c.classList.remove('node-pop');
+    r.setAttribute('opacity','0');
+    r.setAttribute('stroke','transparent');
+    r.classList.remove('glow-ring');
+  });
+  linkEls.each(function() {
+    this.setAttribute('stroke','rgba(100,20,160,.35)');
+    this.setAttribute('stroke-width','1');
+    this.setAttribute('opacity','0.6');
+  });
+
+  document.getElementById('timeline').innerHTML='';
+  document.getElementById('tl-empty').style.display='';
+  updateMetrics([],S.graph.global_risk);
+  headerChips([],S.graph.global_risk,S.graph.global_risk);
+  setStatus('ok',`${S.graph.nodes.length} nodes loaded`);
+}
+
+// ================================================================
+// VIEW MODE
+// ================================================================
+function applyView() {
+  if (!nodeGs) return;
+  nodeGs.each(function(d) {
+    const c = this.querySelector('.node-circ');
+    let fill, stroke;
+    if (S.failed.has(d.id) && S.seeds.includes(d.id)) {
+      fill='url(#gk_seed)';   stroke='#ffca28';
+    } else if (S.failed.has(d.id)) {
+      fill='url(#gk_failed)'; stroke='#ff1744';
+    } else if (S.failed.size>0) {
+      fill='url(#gk_safe)';   stroke='#00e676';
+    } else if (S.view==='risk') {
+      fill=RISK_SCALE(d.risk); stroke=RISK_SCALE(d.risk);
+    } else {
+      fill=`url(#${gradKey(d.sector)})`; stroke=SCOL[d.sector]||'#555';
+    }
+    c.setAttribute('fill',fill);
+    c.setAttribute('stroke',stroke);
+  });
+}
+
+// ================================================================
+// ZOOM FIT
+// ================================================================
+document.getElementById('btn-fit').addEventListener('click', () => {
+  const svg = d3.select('#graph');
+  svg.transition().duration(400).call(zoomBehavior.transform, d3.zoomIdentity);
+});
+
+// ================================================================
+// METRICS
+// ================================================================
+function postRisk(failedIds) {
+  if (!S.graph || !failedIds.length) return S.graph?.global_risk??0;
+  let sum = 0;
+  S.graph.nodes.forEach(n => {
+    sum += failedIds.includes(n.id) ? n.criticality/5 : n.risk;
+  });
+  return +(sum/S.graph.nodes.length).toFixed(3);
+}
+
+function headerChips(failed, pre, post) {
+  const total = S.graph?.nodes.length??0;
+  const fEl = document.getElementById('h-fail');
+  fEl.textContent = failed.length ? `${failed.length}/${total}` : '—';
+  fEl.className = 'cv '+(failed.length>8?'danger':failed.length>3?'warn':'');
+  const c = failed.filter(id=>S.graph.nodes.find(n=>n.id===id)?.criticality>=4).length;
+  const cEl = document.getElementById('h-crit');
+  cEl.textContent = failed.length ? c : '—';
+  cEl.className = 'cv '+(c>4?'danger':c>1?'warn':'');
+  document.getElementById('h-pre').textContent = pre.toFixed(3);
+  const pEl = document.getElementById('h-post');
+  pEl.textContent = failed.length ? post.toFixed(3) : '—';
+  pEl.className = 'cv '+(post>.5?'danger':post>.3?'warn':'safe');
+}
+
+function updateMetrics(failed, post) {
+  const total = S.graph?.nodes.length??0;
+  const mf=document.getElementById('m-fail');
+  mf.textContent=failed.length?`${failed.length}/${total}`:'—';
+  mf.className='mval '+(failed.length>8?'danger':failed.length>3?'warn':'');
+  const c=failed.filter(id=>S.graph.nodes.find(n=>n.id===id)?.criticality>=4).length;
+  const mc=document.getElementById('m-crit');
+  mc.textContent=failed.length?c:'—';
+  mc.className='mval '+(c>4?'danger':c>1?'warn':'');
+  const secs=[...new Set(failed.map(id=>S.graph.nodes.find(n=>n.id===id)?.sector).filter(Boolean))];
+  document.getElementById('m-sec').textContent=failed.length?secs.length:'—';
+  const mp=document.getElementById('m-post');
+  mp.textContent=failed.length?post.toFixed(3):'—';
+  mp.className='mval '+(post>.5?'danger':post>.3?'warn':'safe');
+  const fl=document.getElementById('fl-scroll');
+  fl.innerHTML='';
+  failed.forEach(id=>{
+    const n=S.graph.nodes.find(n=>n.id===id); if(!n) return;
+    const div=document.createElement('div');
+    div.className='ftag';
+    div.innerHTML=`<div class="fdot"></div><div class="fname">${id}</div><div class="fsec">${n.sector}</div>`;
+    fl.appendChild(div);
+  });
+}
+
+// ================================================================
+// CASCADE TIMELINE (new)
+// ================================================================
+function renderTimeline(seeds, levels) {
+  const el = document.getElementById('timeline');
+  const empty = document.getElementById('tl-empty');
+  el.innerHTML=''; empty.style.display='none';
+  levels.forEach((ids, lvl) => {
+    const row = document.createElement('div');
+    row.className='tl-level';
+    const marker = document.createElement('div');
+    marker.className='tl-marker';
+    marker.textContent = lvl===0 ? 'SEED' : `LVL ${lvl}`;
+    const nodes = document.createElement('div');
+    nodes.className='tl-nodes';
+    ids.forEach(id => {
+      const sp = document.createElement('span');
+      sp.className='tl-node' + (lvl===0?' seed-node':'');
+      sp.textContent=id;
+      nodes.appendChild(sp);
+    });
+    row.appendChild(marker); row.appendChild(nodes);
+    el.appendChild(row);
+  });
+}
+
+// ================================================================
+// NODE DETAIL CARD
+// ================================================================
+function renderNodeCard(d) {
+  document.getElementById('nc-name').textContent   = d.id;
+  document.getElementById('nc-sector').textContent = d.sector;
+  document.getElementById('nc-crypto').textContent = d.crypto;
+  document.getElementById('nc-crit').textContent   = '★'.repeat(d.criticality)+'☆'.repeat(5-d.criticality);
+  document.getElementById('nc-mig').textContent    = `${d.migration_pct}%`;
+  document.getElementById('nc-risk').textContent   = d.risk.toFixed(3);
+  const bar=document.getElementById('nc-bar');
+  bar.style.width      = `${d.migration_pct}%`;
+  bar.style.background = d.migration_pct>=50?'#00e676':d.migration_pct>=20?'#ffca28':'#ff1744';
+  const badge=document.getElementById('nc-badge');
+  const isSeed  =S.seeds.includes(d.id);
+  const isFailed=S.failed.has(d.id);
+  if      (isSeed)       { badge.className='nc-badge seed'; badge.textContent='SEED — ORIGIN'; }
+  else if (isFailed)     { badge.className='nc-badge fail'; badge.textContent='CASCADE FAILURE'; }
+  else if (S.failed.size){ badge.className='nc-badge surv'; badge.textContent='SURVIVED'; }
+  else                   { badge.className='nc-badge op';   badge.textContent='OPERATIONAL'; }
+  document.getElementById('ncard').classList.add('vis');
+}
+
+// ================================================================
+// SENSITIVITY CHART
+// ================================================================
+async function loadSens(seed) {
+  try {
+    const r = await fetch(`http://localhost:8000/api/sensitivity?seed=${encodeURIComponent(seed)}`);
+    S.sensData = await r.json();
+    drawSens(S.sensData);
+  } catch {}
+}
+
+function drawSens(data) {
+  const svgEl = document.getElementById('sens-svg');
+  const TW = svgEl.clientWidth||268, TH=112;
+  const m={top:8,right:10,bottom:22,left:26};
+  const W=TW-m.left-m.right, H=TH-m.top-m.bottom;
+  const svg=d3.select('#sens-svg').attr('viewBox',`0 0 ${TW} ${TH}`);
+  svg.selectAll('*').remove();
+
+  const defs=svg.append('defs');
+  const ag=defs.append('linearGradient').attr('id','ag2').attr('x1','0').attr('y1','0').attr('x2','0').attr('y2','1');
+  ag.append('stop').attr('offset','0%').attr('stop-color','#c400e8').attr('stop-opacity',.28);
+  ag.append('stop').attr('offset','100%').attr('stop-color','#c400e8').attr('stop-opacity',.02);
+
+  const g=svg.append('g').attr('transform',`translate(${m.left},${m.top})`);
+  const x=d3.scaleLinear().domain([0,100]).range([0,W]);
+  const y=d3.scaleLinear().domain([0,d3.max(data,d=>d.failed)+.8]).range([H,0]);
+
+  // grid
+  g.append('g').selectAll('line').data(y.ticks(4)).join('line')
+    .attr('x1',0).attr('x2',W).attr('y1',d=>y(d)).attr('y2',d=>y(d))
+    .attr('stroke','rgba(80,20,120,.28)').attr('stroke-width',1);
+
+  // area
+  g.append('path').datum(data).attr('fill','url(#ag2)')
+    .attr('d',d3.area().x(d=>x(d.threshold)).y0(H).y1(d=>y(d.failed)).curve(d3.curveMonotoneX));
+
+  // line — animate with CSS stroke-dasharray trick
+  const linePath = g.append('path').datum(data)
+    .attr('fill','none').attr('stroke','var(--mag)').attr('stroke-width',1.8)
+    .attr('d',d3.line().x(d=>x(d.threshold)).y(d=>y(d.failed)).curve(d3.curveMonotoneX));
+
+  try {
+    const len = linePath.node().getTotalLength();
+    linePath
+      .style('stroke-dasharray', len)
+      .style('stroke-dashoffset', len)
+      .style('animation', 'draw-line 1.2s ease forwards');
+  } catch {}
+
+  // dots
+  g.append('g').selectAll('circle').data(data).join('circle')
+    .attr('cx',d=>x(d.threshold)).attr('cy',d=>y(d.failed))
+    .attr('r',2.4).attr('fill','var(--mag)').attr('stroke','#e080ff').attr('stroke-width',1);
+
+  // axes
+  const axStyle = a=>{
+    a.selectAll('text').attr('fill','#3a1560').attr('font-size','8px').style('font-family','Space Mono');
+    a.selectAll('.domain,.tick line').attr('stroke','rgba(80,20,120,.4)');
+  };
+  g.append('g').attr('transform',`translate(0,${H})`).call(d3.axisBottom(x).ticks(5).tickFormat(d=>`${d}%`)).call(axStyle);
+  g.append('g').call(d3.axisLeft(y).ticks(4)).call(axStyle);
+
+  // threshold marker
+  const thr=+document.getElementById('thr').value;
+  g.append('line').attr('id','sm')
+    .attr('x1',x(thr)).attr('x2',x(thr)).attr('y1',0).attr('y2',H)
+    .attr('stroke','var(--teal)').attr('stroke-width',1.2).attr('stroke-dasharray','3,2');
+
+  // hover crosshair
+  const hl=g.append('line').attr('y1',0).attr('y2',H).attr('stroke','rgba(255,255,255,.15)').attr('stroke-width',1).attr('opacity',0);
+  const hd=g.append('circle').attr('r',4).attr('fill','var(--mag)').attr('stroke','#f0b0ff').attr('stroke-width',1.4).attr('opacity',0);
+  const ht=g.append('text').attr('font-size','9px').attr('fill','var(--tx-b)').style('font-family','Space Mono').attr('opacity',0);
+
+  g.append('rect').attr('width',W).attr('height',H).attr('fill','transparent')
+    .on('mousemove',evt=>{
+      const [mx]=d3.pointer(evt);
+      const t=Math.round(x.invert(mx)/5)*5;
+      const pt=data.find(d=>d.threshold===t); if(!pt) return;
+      hl.attr('x1',x(t)).attr('x2',x(t)).attr('opacity',1);
+      hd.attr('cx',x(t)).attr('cy',y(pt.failed)).attr('opacity',1);
+      const tx=x(t)+6, anchor=tx>W*.68?'end':'start';
+      ht.attr('x',tx).attr('y',y(pt.failed)-6).attr('text-anchor',anchor).text(`${t}% → ${pt.failed} down`).attr('opacity',1);
+    })
+    .on('mouseleave',()=>{hl.attr('opacity',0);hd.attr('opacity',0);ht.attr('opacity',0);});
+}
+
+function moveSensMark(val) {
+  if (!S.sensData) return;
+  const TW=document.getElementById('sens-svg').clientWidth||268;
+  const W=TW-26-10;
+  d3.select('#sm').attr('x1',d3.scaleLinear().domain([0,100]).range([0,W])(val))
+                  .attr('x2',d3.scaleLinear().domain([0,100]).range([0,W])(val));
+}
+
+// ================================================================
+// MOSCA CALCULATOR (new)
+// ================================================================
+function updateMosca() {
+  const X=+document.getElementById('mx').value;
+  const Y=+document.getElementById('my').value;
+  const Z=+document.getElementById('mz').value;
+  document.getElementById('mv-x').textContent=X;
+  document.getElementById('mv-y').textContent=Y;
+  document.getElementById('mv-z').textContent=Z;
+
+  const MAX=35;
+  document.getElementById('m-xy-bar').style.width = Math.min((X+Y)/MAX*100,100)+'%';
+  document.getElementById('m-z-mark').style.left  = Math.min(Z/MAX*100,100)+'%';
+
+  const late=(X+Y)>Z;
+  const diff=Math.abs((X+Y)-Z);
+  const v=document.getElementById('mosca-verdict');
+  if (late) {
+    v.className='mosca-verdict mv-danger';
+    v.textContent=`⚠ LATE BY ${diff} YEAR${diff!==1?'S':''}`;
+  } else {
+    v.className='mosca-verdict mv-safe';
+    v.textContent=`✓ ${diff} YEAR${diff!==1?'S':''} BUFFER`;
+  }
+}
+
+document.querySelectorAll('.mosca-r').forEach(r => r.addEventListener('input', updateMosca));
+
+// ================================================================
+// SCENARIOS
+// ================================================================
+function getSeeds() {
+  const active=document.querySelector('.scen-btn.active');
+  if (active) return active.dataset.seeds.split(',').map(s=>s.trim());
+  return [document.getElementById('seed-sel').value];
+}
+function clearScen() {
+  document.querySelectorAll('.scen-btn').forEach(b=>b.classList.remove('active'));
+}
+document.querySelectorAll('.scen-btn').forEach(btn=>{
+  btn.addEventListener('click',()=>{
+    clearScen(); btn.classList.add('active');
+    const first=btn.dataset.seeds.split(',')[0].trim();
+    document.getElementById('seed-sel').value=first;
+    loadSens(first);
+  });
+});
+
+// ================================================================
+// CONTROLS WIRING
+// ================================================================
+document.getElementById('thr').addEventListener('input',function(){
+  document.getElementById('thr-val').textContent=this.value;
+  moveSensMark(+this.value);
+});
+
+document.getElementById('speed-tog').addEventListener('click',e=>{
+  const btn=e.target.closest('.tb'); if(!btn) return;
+  document.querySelectorAll('#speed-tog .tb').forEach(b=>b.classList.remove('on-teal'));
+  btn.classList.add('on-teal');
+  S.speedMs=+btn.dataset.ms;
+});
+
+document.getElementById('v-sector').addEventListener('click',()=>{
+  S.view='sector';
+  document.getElementById('v-sector').classList.add('on-violet');
+  document.getElementById('v-risk').classList.remove('on-violet');
+  applyView();
+});
+document.getElementById('v-risk').addEventListener('click',()=>{
+  S.view='risk';
+  document.getElementById('v-risk').classList.add('on-violet');
+  document.getElementById('v-sector').classList.remove('on-violet');
+  applyView();
+});
+
+// ================================================================
+// GO
+// ================================================================
+boot();
+</script>
+</body>
+</html>

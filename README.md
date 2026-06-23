@@ -15,15 +15,27 @@ documented assumptions — and how fast post-quantum migration contains it.
 
 ## Run it
 
+**Interactive dashboard (recommended)**
+
 ```bash
 cd backend
 pip install -r requirements.txt
+uvicorn server:app --reload
+# then open frontend/index.html in a browser
+```
+
+The dashboard connects to `http://localhost:8000`. Click any node to select it
+as the seed, drag the threshold slider, hit **RUN CASCADE** to watch the failure
+propagate level-by-level in red.
+
+**CLI demo (no server needed)**
+
+```bash
+cd backend
 python demo.py
 ```
 
-Compromises a Certificate Authority, propagates the failure downstream, prints
-a migration-rate sensitivity sweep, and writes `cascade.png` (failed entities
-in red).
+Compromises GlobalCA, prints a sensitivity sweep, writes `cascade.png`.
 
 ## V1 scope — definition of done
 
@@ -32,8 +44,8 @@ V1 is **done** when these five things work end-to-end, and not before:
 - [x] ~17–20 node infrastructure dependency graph (NetworkX)
 - [x] Cascade propagation engine (failure flows along dependencies)
 - [x] Risk engine from documented crypto-vulnerability assumptions
-- [ ] Migration-rate **sensitivity** analysis surfaced in the UI
-- [ ] Interactive visualization (React Flow / D3) — animate the cascade
+- [x] Migration-rate **sensitivity** analysis surfaced in the UI (sidebar chart + live slider)
+- [x] Interactive visualization (D3 force graph) — animated BFS cascade with per-level stagger
 
 ### Explicitly NOT V1
 Neo4j · Postgres · economic/GDP engine · timeline (2026→2045) engine ·
