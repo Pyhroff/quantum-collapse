@@ -88,8 +88,9 @@ html,body{height:100%;background:var(--void);color:var(--tx);font-family:var(--u
 .brand-title{
   font-family:var(--mono);font-size:15px;font-weight:700;letter-spacing:8px;
   color:var(--teal);text-shadow:0 0 30px rgba(0,245,228,.45);line-height:1;
+  white-space:nowrap;
 }
-.brand-sub{font-size:9px;letter-spacing:3px;color:var(--tx-d);font-family:var(--mono)}
+.brand-sub{font-size:9px;letter-spacing:3px;color:var(--tx-d);font-family:var(--mono);white-space:nowrap}
 .hdr-sep{width:1px;height:34px;background:var(--gb);flex-shrink:0}
 
 /* metric chips */
@@ -1189,9 +1190,30 @@ document.querySelectorAll('.scen-btn').forEach(btn=>{
 // ================================================================
 // CONTROLS WIRING
 // ================================================================
+let _prevDebounce = null;
 document.getElementById('thr').addEventListener('input',function(){
   document.getElementById('thr-val').textContent=this.value;
   moveSensMark(+this.value);
+  // live re-color after first cascade run
+  if (!S.seeds.length || S.animating) return;
+  const thr = +this.value;
+  clearTimeout(_prevDebounce);
+  _prevDebounce = setTimeout(async () => {
+    try {
+      const res = await fetch('http://localhost:8000/api/cascade', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({seeds: S.seeds, resist_threshold: thr}),
+      });
+      const data = await res.json();
+      S.failed = new Set(data.failed);
+      S.levels  = data.levels;
+      applyView();
+      const post = postRisk(data.failed);
+      updateMetrics(data.failed, post);
+      headerChips(data.failed, S.graph.global_risk, post);
+      renderTimeline(S.seeds, data.levels);
+    } catch {}
+  }, 280);
 });
 
 document.getElementById('speed-tog').addEventListener('click',e=>{

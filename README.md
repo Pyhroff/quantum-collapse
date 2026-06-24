@@ -15,7 +15,7 @@ post-quantum migration contains the damage.
 
 > **Two-project arc.**
 > Quantum Collapse asks *"what breaks when CRQC arrives?"*
-> [QEC Lab](https://github.com/Pyhroff/qec-lab) *(coming)* answers *"what does a fault-tolerant quantum computer actually need to run Shor's?"*
+> [QEC Lab](https://github.com/Pyhroff/qec-lab) answers *"what does a fault-tolerant quantum computer actually need to run Shor's?"*
 
 ---
 
