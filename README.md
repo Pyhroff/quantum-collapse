@@ -10,7 +10,7 @@ A scenario simulator for systemic risk during the post-quantum transition:
 computer (CRQC) defeats RSA/ECC across interdependent infrastructure?*
 
 It is **not** a forecast. It is a tool for exploring how failure cascades through
-a dependency graph under stated, documented assumptions — and how fast
+a dependency graph under stated, documented assumptions - and how fast
 post-quantum migration contains the damage.
 
 > **Two-project arc.**
@@ -21,14 +21,14 @@ post-quantum migration contains the damage.
 
 ## Features
 
-- **17-node infrastructure dependency graph** — Certificate Authorities, banks, payment networks, cloud providers, telcos, hospitals, emergency services
-- **BFS cascade propagation** — failure flows downstream; nodes survive only if their PQC migration % clears the threshold
-- **Staggered animation** — cascade unfolds level-by-level with CSS keyframe animations (no rAF dependency)
-- **Migration sensitivity analysis** — sweep 0 → 100 % migration rate and watch the failure count curve
-- **Mosca's Inequality calculator** — interactive X/Y/Z sliders with live "LATE BY N YEARS" verdict
-- **Cascade timeline** — per-level failure sequence rendered after each run
-- **4 scenario presets** — Tier-1 CA, Dual CA, Cloud Cascade, Payment Collapse
-- **Risk heat map toggle** — recolor nodes by individual risk score instead of sector
+- **17-node infrastructure dependency graph** - Certificate Authorities, banks, payment networks, cloud providers, telcos, hospitals, emergency services
+- **BFS cascade propagation** - failure flows downstream; nodes survive only if their PQC migration % clears the threshold
+- **Staggered animation** - cascade unfolds level-by-level with CSS keyframe animations (no rAF dependency)
+- **Migration sensitivity analysis** - sweep 0 → 100 % migration rate and watch the failure count curve
+- **Mosca's Inequality calculator** - interactive X/Y/Z sliders with live "LATE BY N YEARS" verdict
+- **Cascade timeline** - per-level failure sequence rendered after each run
+- **4 scenario presets** - Tier-1 CA, Dual CA, Cloud Cascade, Payment Collapse
+- **Risk heat map toggle** - recolor nodes by individual risk score instead of sector
 
 ---
 
@@ -40,11 +40,11 @@ backend/
     topology.py    # 17-node NetworkX DiGraph with crypto + criticality metadata
     cascade.py     # BFS propagation engine
     risk.py        # per-node risk scoring from crypto-vulnerability assumptions
-  server.py        # FastAPI — /api/graph · /api/cascade · /api/sensitivity
+  server.py        # FastAPI - /api/graph · /api/cascade · /api/sensitivity
   demo.py          # CLI demo, no server needed
 
 frontend/
-  index.html       # standalone — D3 v7 force graph + full control sidebar
+  index.html       # standalone - D3 v7 force graph + full control sidebar
 
 docs/
   DESIGN.md        # documented assumptions behind every number
@@ -84,8 +84,8 @@ Compromises GlobalCA, prints a sensitivity sweep to stdout, writes `cascade.png`
 | Score | Colour | Meaning |
 |-------|--------|---------|
 | < 0.30 | green | low systemic exposure |
-| 0.30 – 0.59 | amber | moderate — migration urgency increasing |
-| ≥ 0.60 | red | critical — cascade probable under partial CRQC capability |
+| 0.30 – 0.59 | amber | moderate - migration urgency increasing |
+| ≥ 0.60 | red | critical - cascade probable under partial CRQC capability |
 
 ---
 
@@ -93,7 +93,7 @@ Compromises GlobalCA, prints a sensitivity sweep to stdout, writes `cascade.png`
 
 Crypto vulnerabilities are keyed to the public consensus behind NIST's PQC
 standards (FIPS 203/204/205, 2024). Migration percentages and criticality scores
-are **illustrative knobs** — the project's point is sensitivity analysis *over*
+are **illustrative knobs** - the project's point is sensitivity analysis *over*
 those knobs, not false precision. See [docs/DESIGN.md](docs/DESIGN.md).
 
 ---
