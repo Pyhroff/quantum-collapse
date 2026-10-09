@@ -157,3 +157,13 @@ The full 5-point grid ran with 1,000 trials per migration rate, base seed 2026, 
 | 100% | 0.000 | 0.0370 | 0.0054 | 0.0283–0.0458 |
 
 These are reproducible sensitivity results for the illustrative 17-node model, not observed infrastructure risk. At 100% baseline migration, the sampled mean remains above zero because the experiment explicitly perturbs migration by ±10 percentage points; the baseline and simulated mean answer different questions.
+
+
+```mermaid
+xychart-beta
+  title "Migration sensitivity — simulated mean"
+  x-axis "Assumed migration (%)" [0, 25, 50, 75, 100]
+  y-axis "Scenario score" 0 --> 0.8
+  line [0.7054, 0.5575, 0.3713, 0.1856, 0.0370]
+```
+
