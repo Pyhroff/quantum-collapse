@@ -29,3 +29,30 @@ jobs:
       - name: Compile Python sources
         run: python -m compileall -q backend
 
+
+      - name: Checkout PQC Scanner integration contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Pyhroff/pqc-scanner
+          ref: 90c199bea07526a0be96093b1ca7a89a1519e295
+          path: pqc-scanner
+          persist-credentials: false
+      - name: Install PQC Scanner
+        run: python -m pip install -e ./pqc-scanner
+      - name: Exercise end-to-end SARIF bridge
+        run: |
+          pqc-scan scan ./pqc-scanner/tests/fixtures/vulnerable_rsa.py --format sarif --output /tmp/pqc-findings.sarif
+          PYTHONPATH=backend python -m quantum_collapse.pqc_scanner_integration /tmp/pqc-findings.sarif --migration-pct 0 --output /tmp/pqc-scenario.json
+          python - <<'PY'
+          import json
+          with open("/tmp/pqc-scenario.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+          evidence = result["observed_evidence"]
+          scenario = result["modeled_scenario"]
+          assert evidence["finding_count"] > 0, "scanner emitted no SARIF findings"
+          assert evidence["by_bucket"]["quantum_broken"] > 0, "RSA fixture was not classified as quantum-broken"
+          assert scenario["node_count"] > 0, "no quantum findings were mapped into the scenario"
+          assert scenario["edge_count"] == 0, "bridge must not invent dependency edges"
+          assert scenario["assumptions"]["migration_pct"] == 0.0
+          print(f"Integration passed: {evidence['finding_count']} evidence finding(s), {scenario['node_count']} modeled node(s)")
+          PY
