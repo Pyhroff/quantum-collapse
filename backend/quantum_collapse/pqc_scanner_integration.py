@@ -59,7 +59,6 @@ def sarif_to_scenario(payload: dict, *, migration_pct: float = 0.0) -> dict:
             bucket = props.get("bucket", "other")
             if bucket not in by_bucket:
                 bucket = "other"
-            by_bucket[bucket] += 1
             locations = result.get("locations") or []
             physical = (locations[0].get("physicalLocation") or {}) if locations else {}
             uri = (physical.get("artifactLocation") or {}).get("uri", "")
@@ -70,6 +69,7 @@ def sarif_to_scenario(payload: dict, *, migration_pct: float = 0.0) -> dict:
             if identity in seen:
                 continue
             seen.add(identity)
+            by_bucket[bucket] += 1
             record = {
                 "file": uri,
                 "line": line,
