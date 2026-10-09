@@ -13,7 +13,7 @@ from pathlib import Path
 
 import networkx as nx
 
-from quantum_collapse.risk import global_risk, node_risk
+from .risk import global_risk, node_risk
 
 
 def _map_algorithm(algorithm: str) -> str | None:
