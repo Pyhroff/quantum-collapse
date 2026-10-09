@@ -25,6 +25,8 @@ post-quantum migration contains the damage.
 - **BFS cascade propagation** - failure flows downstream; nodes survive only if their PQC migration % clears the threshold
 - **Staggered animation** - cascade unfolds level-by-level with CSS keyframe animations (no rAF dependency)
 - **Migration sensitivity analysis** - sweep 0 → 100 % migration rate and watch the failure count curve
+- **Monte Carlo risk bands** - seeded simulations report p05/p50/p95 and dispersion under explicit bounded uncertainty assumptions
+- **PQC Scanner bridge** - import SARIF 2.1.0 findings into a separate finding-weighted scenario without inventing dependency edges
 - **Mosca's Inequality calculator** - interactive X/Y/Z sliders with live "LATE BY N YEARS" verdict
 - **Cascade timeline** - per-level failure sequence rendered after each run
 - **4 scenario presets** - Tier-1 CA, Dual CA, Cloud Cascade, Payment Collapse
@@ -40,7 +42,9 @@ backend/
     topology.py    # 17-node NetworkX DiGraph with crypto + criticality metadata
     cascade.py     # BFS propagation engine
     risk.py        # per-node risk scoring from crypto-vulnerability assumptions
-  server.py        # FastAPI - /api/graph · /api/cascade · /api/sensitivity
+    uncertainty.py # seeded Monte Carlo sensitivity percentiles
+    pqc_scanner_integration.py # SARIF evidence-to-scenario bridge
+  server.py        # FastAPI - /api/graph · /api/cascade · /api/sensitivity · /api/monte-carlo
   demo.py          # CLI demo, no server needed
 
 frontend/
@@ -50,7 +54,11 @@ docs/
   DESIGN.md        # documented assumptions behind every number
 ```
 
-**Model limitations:** All coefficients and migration percentages are illustrative scenario parameters, not empirical forecasts or compliance assessments. The model is not a cryptographic implementation and does not estimate the date a CRQC will arrive. Standardized labels use ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205); legacy Kyber/Dilithium/SPHINCS+ labels are accepted for backwards-compatible scenarios. HQC is a selected candidate for future standardization, not a finalized FIPS standard in this model. See [the current NIST PQC standards status](https://csrc.nist.gov/Projects/Post-Quantum-Cryptography) and [NIST crypto-agility guidance](https://csrc.nist.gov/pubs/cswp/39/upd1/considerations-for-achieving-crypto-agility/final).\n\n**API safety:** The backend only allows configured browser origins; by default, serve `frontend/` locally (for example, `python -m http.server 8080`) and set `QUANTUM_COLLAPSE_ALLOWED_ORIGINS` if using another local origin. Do not expose the development server to an untrusted network.\n\n**Composite risk formula** (post-cascade):
+**Model limitations:** All coefficients and migration percentages are illustrative scenario parameters, not empirical forecasts or compliance assessments. The model is not a cryptographic implementation and does not estimate the date a CRQC will arrive. Standardized labels use ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205); legacy Kyber/Dilithium/SPHINCS+ labels are accepted for backwards-compatible scenarios. HQC is a selected candidate for future standardization, not a finalized FIPS standard in this model. See [the current NIST PQC standards status](https://csrc.nist.gov/Projects/Post-Quantum-Cryptography) and [NIST crypto-agility guidance](https://csrc.nist.gov/pubs/cswp/39/upd1/considerations-for-achieving-crypto-agility/final).
+
+**API safety:** The backend only allows configured browser origins; by default, serve `frontend/` locally (for example, `python -m http.server 8080`) and set `QUANTUM_COLLAPSE_ALLOWED_ORIGINS` if using another local origin. Do not expose the development server to an untrusted network.
+
+**Composite risk formula** (post-cascade):
 - Failed node contributes `criticality / 5` (full crypto exposure)
 - Survived node contributes its pre-computed `risk` score
 
@@ -77,6 +85,16 @@ python demo.py
 
 Compromises GlobalCA, prints a sensitivity sweep to stdout, writes `cascade.png`.
 
+**Monte Carlo API:** `GET /api/monte-carlo?trials=1000&seed=2026&migration_uncertainty_pp=10&vulnerability_uncertainty=0.1` returns reproducible mean/stddev and p05/p50/p95 scenario sensitivity percentiles. These are **not empirical confidence intervals**: the inputs are bounded uniform perturbations around illustrative assumptions.
+
+**Connect PQC Scanner findings:** generate a SARIF report with `pqc-scan scan /path/to/source --format sarif --output findings.sarif`, then from `backend/` run:
+
+```bash
+python -m quantum_collapse.pqc_scanner_integration /path/to/findings.sarif --migration-pct 0 --output scenario.json
+```
+
+The JSON keeps static source findings in `observed_evidence` and model-derived values in `modeled_scenario`. Only mapped quantum-broken findings become risk nodes; classically broken findings remain separate evidence. No dependency edges are inferred, so the result is a finding-weighted scenario—not a systemic-risk forecast. Migration percentage and criticality mapping are explicit assumptions.
+
 ---
 
 ## Decision thresholds
@@ -101,3 +119,8 @@ those knobs, not false precision. See [docs/DESIGN.md](docs/DESIGN.md).
 ## License
 
 [MIT](LICENSE) © 2026 Pyhroff
+
+
+## Reproducibility and interpretation
+
+The Monte Carlo endpoint is deterministic for a fixed graph, parameter set, and seed. Its percentiles summarize the specified model perturbations only; they do not quantify real-world uncertainty without empirical calibration data. Record the seed and assumptions when comparing runs.
