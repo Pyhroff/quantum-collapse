@@ -1,23 +1,34 @@
-"""Quantum Collapse V1 — FastAPI server.
+"""Local API for the Quantum Collapse scenario simulator.
 
-Run from the backend/ directory:
-    uvicorn server:app --reload
+This is an educational model, not an operational risk oracle. Bind locally and
+configure allowed browser origins explicitly before exposing it on a network.
 """
 
+import os
 from collections import deque
-from typing import List
 
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 from quantum_collapse.cascade import cascade as _cascade
 from quantum_collapse.risk import global_risk, node_risk
 from quantum_collapse.topology import build_world
 
-app = FastAPI(title="Quantum Collapse", version="1.0.0")
+app = FastAPI(title="Quantum Collapse", version="1.1.0")
+_allowed_origins = [
+    origin.strip()
+    for origin in os.getenv(
+        "QUANTUM_COLLAPSE_ALLOWED_ORIGINS",
+        "http://localhost:8080,http://127.0.0.1:8080",
+    ).split(",")
+    if origin.strip()
+]
 app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
+    CORSMiddleware,
+    allow_origins=_allowed_origins,
+    allow_methods=["GET", "POST"],
+    allow_headers=["Content-Type"],
 )
 
 _g = build_world()
@@ -41,19 +52,22 @@ def get_graph():
 
 
 class CascadeRequest(BaseModel):
-    seeds: List[str]
-    resist_threshold: int = 100
+    seeds: list[str] = Field(min_length=1)
+    resist_threshold: int = Field(default=100, ge=0, le=100)
 
 
 @app.post("/api/cascade")
 def cascade_endpoint(req: CascadeRequest):
-    for s in req.seeds:
-        if s not in _g.nodes:
-            raise HTTPException(400, f"Unknown node: {s}")
-    failed_set = _cascade(_g, req.seeds, req.resist_threshold)
+    unknown = [seed for seed in req.seeds if seed not in _g]
+    if unknown:
+        raise HTTPException(400, f"Unknown node(s): {unknown}")
+    try:
+        failed_set = _cascade(_g, req.seeds, req.resist_threshold)
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
     levels = _bfs_levels(req.seeds, failed_set)
     return {
-        "failed": list(failed_set),
+        "failed": sorted(failed_set),
         "levels": levels,
         "failed_count": len(failed_set),
         "total": _g.number_of_nodes(),
@@ -65,29 +79,30 @@ def sensitivity(seed: str = "GlobalCA"):
     if seed not in _g.nodes:
         raise HTTPException(400, f"Unknown node: {seed}")
     return [
-        {"threshold": thr, "failed": len(_cascade(_g, [seed], resist_threshold=thr))}
-        for thr in range(0, 101, 5)
+        {"threshold": threshold, "failed": len(_cascade(_g, [seed], resist_threshold=threshold))}
+        for threshold in range(0, 101, 5)
     ]
 
 
-def _bfs_levels(seeds: list, failed: set) -> list:
-    """Return failed nodes grouped by BFS depth for cascade animation."""
-    visited = set(seeds)
-    levels = [list(seeds)]
-    queue = deque(seeds)
-    depth = {s: 0 for s in seeds}
+def _bfs_levels(seeds: list[str], failed: set[str]) -> list[list[str]]:
+    """Return failed nodes grouped by BFS depth in deterministic order."""
+    seed_order = list(dict.fromkeys(seeds))
+    visited = set(seed_order)
+    levels = [sorted(seed_order)]
+    queue = deque(seed_order)
+    depth = {seed: 0 for seed in seed_order}
 
     while queue:
         node = queue.popleft()
-        for dep in _g.successors(node):
-            if dep in visited or dep not in failed:
+        for dependent in sorted(_g.successors(node)):
+            if dependent in visited or dependent not in failed:
                 continue
-            visited.add(dep)
-            d = depth[node] + 1
-            depth[dep] = d
-            while len(levels) <= d:
+            visited.add(dependent)
+            next_depth = depth[node] + 1
+            depth[dependent] = next_depth
+            while len(levels) <= next_depth:
                 levels.append([])
-            levels[d].append(dep)
-            queue.append(dep)
+            levels[next_depth].append(dependent)
+            queue.append(dependent)
 
-    return levels
+    return [sorted(level) for level in levels]
