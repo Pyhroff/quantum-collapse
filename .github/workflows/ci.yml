@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Pyhroff/pqc-scanner
-          ref: 90c199bea07526a0be96093b1ca7a89a1519e295
+          ref: f7db3c391137def8c101b871958e8ba9e2d6e8d8
           path: pqc-scanner
           persist-credentials: false
       - name: Install PQC Scanner
@@ -55,4 +55,15 @@ jobs:
           assert scenario["edge_count"] == 0, "bridge must not invent dependency edges"
           assert scenario["assumptions"]["migration_pct"] == 0.0
           print(f"Integration passed: {evidence['finding_count']} evidence finding(s), {scenario['node_count']} modeled node(s)")
+          PY
+          pqc-scan scan ./pqc-scanner/tests/fixtures/clean_pqc.py --format sarif --output /tmp/pqc-clean.sarif
+          PYTHONPATH=backend python -m quantum_collapse.pqc_scanner_integration /tmp/pqc-clean.sarif --output /tmp/pqc-clean-scenario.json
+          python - <<'PY'
+          import json
+          with open("/tmp/pqc-clean-scenario.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+          assert result["observed_evidence"]["finding_count"] == 0, "clean fixture produced findings"
+          assert result["modeled_scenario"]["node_count"] == 0, "clean fixture produced modeled nodes"
+          assert result["modeled_scenario"]["edge_count"] == 0, "clean fixture produced dependency edges"
+          print("Clean-fixture integration passed: 0 findings, 0 modeled nodes")
           PY
