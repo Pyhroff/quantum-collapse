@@ -137,3 +137,8 @@ PYTHONPATH=backend python -m quantum_collapse.scenario_sweep \
 ```
 
 The JSON manifest captures the revision, environment, migration-rate grid, random seeds, trial count, uncertainty assumptions, runtime, mean/standard deviation, and p05/p50/p95 bands. The built-in 17-node topology and all risk coefficients remain illustrative. These bands quantify sensitivity to assumed inputs; they are not empirical confidence intervals or measured infrastructure risk.
+
+
+### Versioned scanner integration contract
+
+The bridge output contract is defined in `docs/schemas/pqc-scenario-bridge-output-1.0.schema.json` and validated in CI. It deliberately separates `observed_evidence` (static scanner findings) from `modeled_scenario` (risk nodes generated using explicit assumptions). No dependency edges are inferred from file paths. Bump the schema version when changing the contract incompatibly.
