@@ -191,3 +191,34 @@ def test_sarif_duplicate_results_do_not_inflate_bucket_counts():
     evidence = result["observed_evidence"]
     assert evidence["finding_count"] == 1
     assert sum(evidence["by_bucket"].values()) == evidence["finding_count"]
+
+
+
+def test_migration_sweep_is_reproducible_and_records_assumptions():
+    from backend.quantum_collapse.scenario_sweep import build_sweep_report
+
+    kwargs = {
+        "migration_rates": [0, 50, 100],
+        "trials": 100,
+        "seed": 20261009,
+        "code_revision": "test-revision",
+    }
+    first = build_sweep_report(**kwargs)
+    second = build_sweep_report(**kwargs)
+    assert first["schema_version"] == "1.0"
+    assert first["code_revision"] == "test-revision"
+    assert first["measurement_type"] == "scenario_sensitivity_not_empirical_estimate"
+    assert first["result_count"] == 3
+    assert first["results"] == second["results"]
+    assert all(row["trials"] == 100 for row in first["results"])
+    assert all(row["p05"] <= row["p50"] <= row["p95"] for row in first["results"])
+    assert all(row["stddev"] >= 0 for row in first["results"])
+
+
+def test_migration_sweep_rejects_empty_or_out_of_range_grid():
+    from backend.quantum_collapse.scenario_sweep import build_sweep_report
+
+    with pytest.raises(ValueError):
+        build_sweep_report(migration_rates=[])
+    with pytest.raises(ValueError):
+        build_sweep_report(migration_rates=[101], trials=100)
