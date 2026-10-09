@@ -34,7 +34,7 @@ That framing is what makes the project defensible in an interview.
 Timeline grounding for later: Mosca's inequality (`X + Y > Z`) for *when*
 migration must finish relative to CRQC arrival.
 
-## The line (NOT V1)
+## Standards and model maintenance\n\nUse standardized algorithm names in new scenario data: ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205). Legacy labels such as Kyber, Dilithium, and SPHINCS+ remain for backward compatibility only. HQC was selected for future standardization, but should not be described as a finalized FIPS standard until NIST publishes the final specification. The model's scores are illustrative parameters, not algorithm security proofs or real-world risk measurements.\n\nThe backend validates migration percentages, criticality, seed nodes, and thresholds; API outputs are sorted for reproducibility. Browser origins are allowlisted instead of using wildcard CORS.\n\n## The line (NOT V1)
 
 Neo4j, Postgres, GDP/economic engine, year-by-year timeline engine, AI policy
 advisor, country simulation, auth/multi-user. When the five V1 boxes in the
