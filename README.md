@@ -66,7 +66,7 @@ pip install -r requirements.txt
 uvicorn server:app --reload
 ```
 
-Then open `frontend/index.html` in a browser. The page connects to `http://localhost:8000`, loads the graph, and is ready to simulate. No build step.
+In a second terminal from the repository root, serve the frontend with `python -m http.server 8080`, then open `http://localhost:8080/frontend/` in your browser. The page connects to `http://localhost:8000`. The API allows these local origins by default; set `QUANTUM_COLLAPSE_ALLOWED_ORIGINS` if you choose another origin. No frontend build step is needed.
 
 **CLI demo** (no server needed)
 
