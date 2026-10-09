@@ -124,3 +124,16 @@ those knobs, not false precision. See [docs/DESIGN.md](docs/DESIGN.md).
 ## Reproducibility and interpretation
 
 The Monte Carlo endpoint is deterministic for a fixed graph, parameter set, and seed. Its percentiles summarize the specified model perturbations only; they do not quantify real-world uncertainty without empirical calibration data. Record the seed and assumptions when comparing runs.
+
+
+## Reproducible migration sensitivity experiment
+
+From the repository root:
+
+```bash
+PYTHONPATH=backend python -m quantum_collapse.scenario_sweep \
+  --migration-rates 0,25,50,75,100 \
+  --trials 1000 --seed 2026 --output migration-sweep.json
+```
+
+The JSON manifest captures the revision, environment, migration-rate grid, random seeds, trial count, uncertainty assumptions, runtime, mean/standard deviation, and p05/p50/p95 bands. The built-in 17-node topology and all risk coefficients remain illustrative. These bands quantify sensitivity to assumed inputs; they are not empirical confidence intervals or measured infrastructure risk.
