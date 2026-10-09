@@ -14,6 +14,7 @@ from pydantic import BaseModel, Field
 from quantum_collapse.cascade import cascade as _cascade
 from quantum_collapse.risk import global_risk, node_risk
 from quantum_collapse.topology import build_world
+from quantum_collapse.uncertainty import monte_carlo_risk
 
 app = FastAPI(title="Quantum Collapse", version="1.1.0")
 _allowed_origins = [
@@ -82,6 +83,26 @@ def sensitivity(seed: str = "GlobalCA"):
         {"threshold": threshold, "failed": len(_cascade(_g, [seed], resist_threshold=threshold))}
         for threshold in range(0, 101, 5)
     ]
+
+
+@app.get("/api/monte-carlo")
+def monte_carlo_endpoint(
+    trials: int = 1000,
+    seed: int = 0,
+    migration_uncertainty_pp: float = 10.0,
+    vulnerability_uncertainty: float = 0.1,
+):
+    """Return reproducible sensitivity percentiles, not empirical confidence intervals."""
+    try:
+        return monte_carlo_risk(
+            _g,
+            trials=trials,
+            seed=seed,
+            migration_uncertainty_pp=migration_uncertainty_pp,
+            vulnerability_uncertainty=vulnerability_uncertainty,
+        )
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 def _bfs_levels(seeds: list[str], failed: set[str]) -> list[list[str]]:
