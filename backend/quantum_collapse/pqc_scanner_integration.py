@@ -30,7 +30,11 @@ def _map_algorithm(algorithm: str) -> str | None:
 
 
 def sarif_to_scenario(payload: dict, *, migration_pct: float = 0.0) -> dict:
-    """Validate SARIF 2.1.0 and return evidence plus a finding-weighted scenario."""
+    """Check the SARIF 2.1.0 envelope and return evidence plus a modeled scenario.
+
+    Full SARIF schema validation is performed in the scanner's CI before this
+    bridge contract is exercised; this function also guards its own key invariants.
+    """
     if not isinstance(payload, dict) or payload.get("version") != "2.1.0":
         raise ValueError("input must be a SARIF 2.1.0 object")
     if isinstance(migration_pct, bool) or not isinstance(migration_pct, (int, float)) or not math.isfinite(migration_pct) or not 0 <= migration_pct <= 100:
