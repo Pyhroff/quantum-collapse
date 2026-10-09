@@ -34,7 +34,7 @@ jobs:
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           repository: Pyhroff/pqc-scanner
-          ref: f7db3c391137def8c101b871958e8ba9e2d6e8d8
+          ref: b4c7a8a82e58ad8eb5fa890bd2a049e1dc80e7c1
           path: pqc-scanner
           persist-credentials: false
       - name: Install PQC Scanner
