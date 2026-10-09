@@ -168,3 +168,26 @@ def test_monte_carlo_and_sarif_scenario_risk_use_bounded_model_inputs():
     )
     assert result["p05"] == pytest.approx(1.0)
     assert result["p95"] == pytest.approx(1.0)
+
+
+
+def test_sarif_duplicate_results_do_not_inflate_bucket_counts():
+    finding = {
+        "ruleId": "pqc.quantum_broken.rsa",
+        "level": "error",
+        "locations": [{
+            "physicalLocation": {
+                "artifactLocation": {"uri": "src/crypto.py"},
+                "region": {"startLine": 8},
+            }
+        }],
+        "properties": {"bucket": "quantum_broken", "algorithm": "RSA"},
+        "message": {"text": "RSA detected"},
+    }
+    result = sarif_to_scenario({
+        "version": "2.1.0",
+        "runs": [{"tool": {"driver": {"name": "pqc-scanner"}}, "results": [finding, finding]}],
+    })
+    evidence = result["observed_evidence"]
+    assert evidence["finding_count"] == 1
+    assert sum(evidence["by_bucket"].values()) == evidence["finding_count"]
