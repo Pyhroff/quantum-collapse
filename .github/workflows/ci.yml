@@ -26,6 +26,18 @@ jobs:
           python -m pip install -r backend/requirements.txt pytest
       - name: Run model regression tests
         run: python -m pytest -q backend/tests
+      - name: Run reproducible migration-sensitivity sweep
+        run: |
+          PYTHONPATH=backend python -m quantum_collapse.scenario_sweep --migration-rates 0,50,100 --trials 100 --seed 20261009 --output /tmp/migration-sweep.json
+          python - <<'PY'
+          import json
+          with open("/tmp/migration-sweep.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+          assert report["result_count"] == 3
+          assert report["measurement_type"] == "scenario_sensitivity_not_empirical_estimate"
+          assert all(row["trials"] == 100 for row in report["results"])
+          print(f"Migration sweep passed: {report['result_count']} cases, {report['runtime_seconds']} seconds")
+          PY
       - name: Compile Python sources
         run: python -m compileall -q backend
 
