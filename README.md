@@ -142,3 +142,18 @@ The JSON manifest captures the revision, environment, migration-rate grid, rando
 ### Versioned scanner integration contract
 
 The bridge output contract is defined in `docs/schemas/pqc-scenario-bridge-output-1.0.schema.json` and validated in CI. It deliberately separates `observed_evidence` (static scanner findings) from `modeled_scenario` (risk nodes generated using explicit assumptions). No dependency edges are inferred from file paths. Bump the schema version when changing the contract incompatibly.
+
+
+### CI migration-sensitivity snapshot
+
+The full 5-point grid ran with 1,000 trials per migration rate, base seed 2026, migration uncertainty ±10 percentage points, and absolute vulnerability-score uncertainty ±0.1.
+
+| Assumed migration | Baseline score | Simulated mean | Std. dev. | p05–p95 |
+|---:|---:|---:|---:|---:|
+| 0% | 0.777 | 0.7054 | 0.0085 | 0.6911–0.7193 |
+| 25% | 0.583 | 0.5575 | 0.0117 | 0.5383–0.5757 |
+| 50% | 0.389 | 0.3713 | 0.0119 | 0.3523–0.3903 |
+| 75% | 0.194 | 0.1856 | 0.0109 | 0.1675–0.2033 |
+| 100% | 0.000 | 0.0370 | 0.0054 | 0.0283–0.0458 |
+
+These are reproducible sensitivity results for the illustrative 17-node model, not observed infrastructure risk. At 100% baseline migration, the sampled mean remains above zero because the experiment explicitly perturbs migration by ±10 percentage points; the baseline and simulated mean answer different questions.
