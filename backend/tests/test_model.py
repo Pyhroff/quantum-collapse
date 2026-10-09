@@ -4,6 +4,9 @@ These tests validate implementation invariants, not real-world probability
 estimates. The scenario coefficients remain illustrative assumptions.
 """
 
+import json
+from pathlib import Path
+
 import networkx as nx
 import pytest
 
@@ -141,6 +144,10 @@ def test_sarif_bridge_separates_observed_findings_from_scenario_assumptions():
         }],
     }
     result = sarif_to_scenario(sarif, migration_pct=25)
+    schema_path = Path(__file__).resolve().parents[2] / "docs" / "schemas" / "pqc-scenario-bridge-output-1.0.schema.json"
+    schema = json.loads(schema_path.read_text(encoding="utf-8"))
+    from jsonschema import validate
+    validate(instance=result, schema=schema)
     assert result["observed_evidence"]["finding_count"] == 2
     assert result["observed_evidence"]["by_bucket"]["quantum_broken"] == 1
     assert result["observed_evidence"]["by_bucket"]["classically_broken"] == 1
