@@ -50,7 +50,7 @@ docs/
   DESIGN.md        # documented assumptions behind every number
 ```
 
-**Composite risk formula** (post-cascade):
+**Model limitations:** All coefficients and migration percentages are illustrative scenario parameters, not empirical forecasts or compliance assessments. The model is not a cryptographic implementation and does not estimate the date a CRQC will arrive. Standardized labels use ML-KEM (FIPS 203), ML-DSA (FIPS 204), and SLH-DSA (FIPS 205); legacy Kyber/Dilithium/SPHINCS+ labels are accepted for backwards-compatible scenarios. HQC is a selected candidate for future standardization, not a finalized FIPS standard in this model. See [the current NIST PQC standards status](https://csrc.nist.gov/Projects/Post-Quantum-Cryptography) and [NIST crypto-agility guidance](https://csrc.nist.gov/pubs/cswp/39/upd1/considerations-for-achieving-crypto-agility/final).\n\n**API safety:** The backend only allows configured browser origins; by default, serve `frontend/` locally (for example, `python -m http.server 8080`) and set `QUANTUM_COLLAPSE_ALLOWED_ORIGINS` if using another local origin. Do not expose the development server to an untrusted network.\n\n**Composite risk formula** (post-cascade):
 - Failed node contributes `criticality / 5` (full crypto exposure)
 - Survived node contributes its pre-computed `risk` score
 
