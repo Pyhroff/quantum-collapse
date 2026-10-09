@@ -9,7 +9,7 @@ import math
 import random
 from statistics import fmean, pstdev
 
-from quantum_collapse.risk import QUANTUM_VULNERABILITY, _UNKNOWN_CRYPTO_VULNERABILITY, global_risk, node_risk, node_vulnerability
+from .risk import QUANTUM_VULNERABILITY, _UNKNOWN_CRYPTO_VULNERABILITY, global_risk, node_risk, node_vulnerability
 
 
 def _finite_range(value: float, name: str, low: float, high: float) -> None:
