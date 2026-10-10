@@ -1,37 +1,43 @@
-"""Cascade engine: propagate failure through the dependency graph.
-
-Model (V1 — deliberately simple and explainable):
-  * A ``seed`` entity is compromised (e.g. its crypto is broken by a CRQC).
-  * Failure flows along edge direction (provider -> dependent).
-  * A node *resists* the cascade if it is sufficiently migrated to PQC, i.e.
-    ``migration_pct >= resist_threshold``. A resistant node fails-safe and does
-    NOT propagate failure onward.
-
-The ``resist_threshold`` knob is what makes the migration-rate sensitivity
-slider meaningful: lower it and more entities survive, containing the cascade.
-"""
+"""Deterministic cascade propagation over a directed dependency graph."""
 
 from collections import deque
+from collections.abc import Iterable
 
 import networkx as nx
 
 
-def cascade(g: nx.DiGraph, seeds, resist_threshold: int = 100) -> set:
-    """Return the set of failed nodes after compromising ``seeds``.
+def cascade(g: nx.DiGraph, seeds: Iterable[str], resist_threshold: int = 100) -> set[str]:
+    """Return failed nodes after compromising one or more seed nodes.
 
-    ``resist_threshold`` = minimum migration_pct a node needs to survive an
-    upstream failure. Default 100 means "only fully-migrated nodes survive".
+    Edges point provider -> dependent. A dependent survives and stops the
+    cascade when its migration percentage meets the threshold. Seed nodes are
+    considered compromised regardless of their own migration percentage.
     """
-    failed = set(seeds)
-    queue = deque(seeds)
+    if not isinstance(resist_threshold, int) or not 0 <= resist_threshold <= 100:
+        raise ValueError("resist_threshold must be an integer between 0 and 100")
+
+    seed_list = list(dict.fromkeys(seeds))
+    if not seed_list:
+        raise ValueError("at least one seed node is required")
+    unknown = [node for node in seed_list if node not in g]
+    if unknown:
+        raise ValueError(f"unknown seed node(s): {unknown}")
+
+    failed: set[str] = set(seed_list)
+    queue = deque(seed_list)
 
     while queue:
         node = queue.popleft()
         for dependent in g.successors(node):
             if dependent in failed:
                 continue
-            if g.nodes[dependent]["migration_pct"] >= resist_threshold:
-                continue  # migrated: survives and stops the cascade here
+            migration = g.nodes[dependent].get("migration_pct")
+            if not isinstance(migration, (int, float)) or not 0 <= migration <= 100:
+                raise ValueError(
+                    f"migration_pct for {dependent!r} must be between 0 and 100"
+                )
+            if migration >= resist_threshold:
+                continue
             failed.add(dependent)
             queue.append(dependent)
     return failed
