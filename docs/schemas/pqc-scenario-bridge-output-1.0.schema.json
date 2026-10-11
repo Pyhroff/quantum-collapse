@@ -1,0 +1,306 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "pqc-scenario-bridge-output-1.0.schema.json",
+  "title": "PQC Scanner to Quantum Collapse Scenario Output",
+  "description": "Versioned contract separating observed static-analysis evidence from assumed scenario-model outputs.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "source",
+    "observed_evidence",
+    "modeled_scenario"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": "1.0"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "format",
+        "version",
+        "tool"
+      ],
+      "properties": {
+        "format": {
+          "const": "SARIF"
+        },
+        "version": {
+          "const": "2.1.0"
+        },
+        "tool": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "observed_evidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "finding_count",
+        "by_bucket",
+        "findings"
+      ],
+      "properties": {
+        "finding_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "by_bucket": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "quantum_broken",
+            "classically_broken",
+            "quantum_weakened",
+            "other"
+          ],
+          "properties": {
+            "quantum_broken": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "classically_broken": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "quantum_weakened": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "other": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "line",
+              "algorithm",
+              "bucket",
+              "severity",
+              "message",
+              "evidence_type"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "algorithm": {
+                "type": "string"
+              },
+              "bucket": {
+                "enum": [
+                  "quantum_broken",
+                  "classically_broken",
+                  "quantum_weakened",
+                  "other"
+                ]
+              },
+              "severity": {
+                "enum": [
+                  "error",
+                  "warning",
+                  "note"
+                ]
+              },
+              "message": {
+                "type": "string"
+              },
+              "evidence_type": {
+                "const": "static_source_code_finding"
+              }
+            }
+          }
+        }
+      }
+    },
+    "modeled_scenario": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "node_count",
+        "edge_count",
+        "finding_weighted_risk_score",
+        "nodes",
+        "unmapped_quantum_findings",
+        "assumptions"
+      ],
+      "properties": {
+        "node_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "edge_count": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "finding_weighted_risk_score": {
+          "type": [
+            "number",
+            "null"
+          ],
+          "minimum": 0,
+          "maximum": 1
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "id",
+              "sector",
+              "crypto",
+              "criticality",
+              "migration_pct",
+              "evidence_file",
+              "evidence_line",
+              "evidence_algorithm",
+              "modeled_risk"
+            ],
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "sector": {
+                "type": "string"
+              },
+              "crypto": {
+                "type": "string"
+              },
+              "criticality": {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 5
+              },
+              "migration_pct": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 100
+              },
+              "evidence_file": {
+                "type": "string"
+              },
+              "evidence_line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "evidence_algorithm": {
+                "type": "string"
+              },
+              "modeled_risk": {
+                "type": "number",
+                "minimum": 0,
+                "maximum": 1
+              }
+            }
+          }
+        },
+        "unmapped_quantum_findings": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "file",
+              "line",
+              "algorithm"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": [
+                  "integer",
+                  "null"
+                ],
+                "minimum": 1
+              },
+              "algorithm": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "assumptions": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "migration_pct",
+            "criticality_by_sarif_level",
+            "dependency_edges",
+            "risk_score",
+            "risk_coefficients",
+            "limitations"
+          ],
+          "properties": {
+            "migration_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "criticality_by_sarif_level": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "error",
+                "warning",
+                "note"
+              ],
+              "properties": {
+                "error": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "warning": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                },
+                "note": {
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 5
+                }
+              }
+            },
+            "dependency_edges": {
+              "type": "string"
+            },
+            "risk_score": {
+              "type": "string"
+            },
+            "risk_coefficients": {
+              "type": "string"
+            },
+            "limitations": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    }
+  }
+}

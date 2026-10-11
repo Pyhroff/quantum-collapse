@@ -10,7 +10,8 @@ permissions:
   contents: read
 
 jobs:
-  smoke:
+  test:
+    name: Model tests (Python 3.11)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -19,5 +20,76 @@ jobs:
       - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
         with:
           python-version: "3.11"
+      - name: Install backend and test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r backend/requirements.txt pytest jsonschema==4.25.1
+      - name: Run model regression tests
+        run: python -m pytest -q backend/tests
+      - name: Run reproducible migration-sensitivity sweep
+        run: |
+          PYTHONPATH=backend python -m quantum_collapse.scenario_sweep --migration-rates 0,25,50,75,100 --trials 1000 --seed 20261009 --output /tmp/migration-sweep.json
+          python - <<'PY'
+          import json
+          with open("/tmp/migration-sweep.json", encoding="utf-8") as handle:
+              report = json.load(handle)
+          assert report["result_count"] == 5
+          assert report["measurement_type"] == "scenario_sensitivity_not_empirical_estimate"
+          assert all(row["trials"] == 1000 for row in report["results"])
+          print(f"Migration sweep passed: {report['result_count']} cases, {report['runtime_seconds']} seconds")
+          PY
       - name: Compile Python sources
-        run: python -m compileall -q .
+        run: python -m compileall -q backend
+
+
+      - name: Checkout PQC Scanner integration contract
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: Pyhroff/pqc-scanner
+          ref: 9886e209d59340401b304182aa70bb2af0ac0e88
+          path: pqc-scanner
+          persist-credentials: false
+      - name: Install PQC Scanner
+        run: python -m pip install -e ./pqc-scanner
+      - name: Exercise end-to-end SARIF bridge
+        run: |
+          pqc-scan scan ./pqc-scanner/tests/fixtures/vulnerable_rsa.py --format sarif --output /tmp/pqc-findings.sarif
+          PYTHONPATH=backend python -m quantum_collapse.pqc_scanner_integration /tmp/pqc-findings.sarif --migration-pct 0 --output /tmp/pqc-scenario.json
+          python - <<'PY'
+          import json
+          with open("/tmp/pqc-scenario.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+          evidence = result["observed_evidence"]
+          scenario = result["modeled_scenario"]
+          assert evidence["finding_count"] > 0, "scanner emitted no SARIF findings"
+          assert evidence["by_bucket"]["quantum_broken"] > 0, "RSA fixture was not classified as quantum-broken"
+          assert scenario["node_count"] > 0, "no quantum findings were mapped into the scenario"
+          assert scenario["edge_count"] == 0, "bridge must not invent dependency edges"
+          assert scenario["assumptions"]["migration_pct"] == 0.0
+          print(f"Integration passed: {evidence['finding_count']} evidence finding(s), {scenario['node_count']} modeled node(s)")
+          PY
+          pqc-scan scan ./pqc-scanner/tests/fixtures/vulnerable_jwt.py --format sarif --output /tmp/pqc-jwt.sarif
+          PYTHONPATH=backend python -m quantum_collapse.pqc_scanner_integration /tmp/pqc-jwt.sarif --migration-pct 0 --output /tmp/pqc-jwt-scenario.json
+          python - <<'PY'
+          import json
+          with open("/tmp/pqc-jwt-scenario.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+          evidence = result["observed_evidence"]
+          scenario = result["modeled_scenario"]
+          assert evidence["by_bucket"]["quantum_broken"] > 0, "JWT RS256 fixture was not classified as quantum-broken"
+          assert any("RS256" in item["algorithm"] for item in evidence["findings"]), "JWT algorithm evidence was lost"
+          assert scenario["node_count"] > 0, "JWT quantum finding was not mapped into the scenario"
+          assert scenario["edge_count"] == 0, "bridge must not invent dependency edges"
+          print("JWT integration passed: asymmetric algorithm finding preserved")
+          PY
+          pqc-scan scan ./pqc-scanner/tests/fixtures/clean_pqc.py --format sarif --output /tmp/pqc-clean.sarif
+          PYTHONPATH=backend python -m quantum_collapse.pqc_scanner_integration /tmp/pqc-clean.sarif --output /tmp/pqc-clean-scenario.json
+          python - <<'PY'
+          import json
+          with open("/tmp/pqc-clean-scenario.json", encoding="utf-8") as handle:
+              result = json.load(handle)
+          assert result["observed_evidence"]["finding_count"] == 0, "clean fixture produced findings"
+          assert result["modeled_scenario"]["node_count"] == 0, "clean fixture produced modeled nodes"
+          assert result["modeled_scenario"]["edge_count"] == 0, "clean fixture produced dependency edges"
+          print("Clean-fixture integration passed: 0 findings, 0 modeled nodes")
+          PY
