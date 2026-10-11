@@ -215,6 +215,15 @@ def test_migration_sweep_is_reproducible_and_records_assumptions():
     assert first["schema_version"] == "1.0"
     assert first["code_revision"] == "test-revision"
     assert first["measurement_type"] == "scenario_sensitivity_not_empirical_estimate"
+    standards = first["standards_basis"]
+    assert standards["reviewed_on"] == "2026-10-11"
+    assert standards["finalized_nist_pqc"] == {
+        "ML-KEM": "FIPS 203",
+        "ML-DSA": "FIPS 204",
+        "SLH-DSA": "FIPS 205",
+    }
+    assert standards["candidate_status"]["HQC"].startswith("selected for future")
+    assert "withdrawn" in standards["candidate_status"]["HAWK"]
     assert first["result_count"] == 3
     assert first["results"] == second["results"]
     assert all(row["trials"] == 100 for row in first["results"])
