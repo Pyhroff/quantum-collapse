@@ -67,6 +67,27 @@ def build_sweep_report(
         "schema_version": "1.0",
         "experiment": "quantum-collapse-migration-sensitivity",
         "measurement_type": "scenario_sensitivity_not_empirical_estimate",
+        "standards_basis": {
+            "reviewed_on": "2026-10-11",
+            "finalized_nist_pqc": {
+                "ML-KEM": "FIPS 203",
+                "ML-DSA": "FIPS 204",
+                "SLH-DSA": "FIPS 205",
+            },
+            "crypto_agility_guidance": {
+                "document": "NIST CSWP 39 Update 1",
+                "status": "final",
+                "published_on": "2026-06-29",
+            },
+            "candidate_status": {
+                "HQC": "selected for future standardization; not a finalized FIPS standard",
+                "HAWK": "withdrawn from the additional-signature standardization process in July 2026",
+            },
+            "interpretation": (
+                "Standards status is reference metadata only; it does not prove that a modeled "
+                "node deploys or correctly configures any algorithm."
+            ),
+        },
         "created_at_utc": datetime.now(timezone.utc).isoformat(),
         "code_revision": code_revision or os.getenv("GITHUB_SHA", "unknown"),
         "environment": {"python": sys.version.split()[0], "platform": platform.platform()},
