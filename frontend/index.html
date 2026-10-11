@@ -497,6 +497,21 @@ input[type=range]{
       <svg id="sens-svg" style="height:112px"></svg>
     </div>
 
+    <!-- MONTE CARLO RISK SENSITIVITY -->
+    <div class="panel">
+      <div class="ptitle">RISK SENSITIVITY · MONTE CARLO</div>
+      <div style="font-size:9px;color:var(--tx-d);margin-bottom:8px;line-height:1.65">
+        Seeded perturbations of illustrative migration and vulnerability inputs. Percentiles are scenario bands, not empirical confidence intervals.
+      </div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-family:'Space Mono',monospace;font-size:10px">
+        <div>BASELINE <strong id="mc-base">—</strong></div>
+        <div>SIMULATED MEAN <strong id="mc-mean">—</strong></div>
+        <div>p05 <strong id="mc-p05">—</strong></div>
+        <div>p95 <strong id="mc-p95">—</strong></div>
+      </div>
+      <div id="mc-status" style="font-size:9px;color:var(--tx-d);margin-top:8px">Waiting for backend…</div>
+    </div>
+
     <!-- MOSCA CALCULATOR — new feature -->
     <div class="panel">
       <div class="ptitle">MOSCA'S INEQUALITY</div>
@@ -590,6 +605,7 @@ async function boot() {
     headerChips([], S.graph.global_risk, S.graph.global_risk);
     document.getElementById('h-pre').textContent = S.graph.global_risk.toFixed(3);
     await loadSens('GlobalCA');
+    await loadMonteCarlo();
     updateMosca();
   } catch {
     setStatus('err', 'backend offline — cd backend && uvicorn server:app');
@@ -1041,6 +1057,22 @@ function renderNodeCard(d) {
   else if (S.failed.size){ badge.className='nc-badge surv'; badge.textContent='SURVIVED'; }
   else                   { badge.className='nc-badge op';   badge.textContent='OPERATIONAL'; }
   document.getElementById('ncard').classList.add('vis');
+}
+
+async function loadMonteCarlo() {
+  const status = document.getElementById('mc-status');
+  try {
+    const r = await fetch('http://localhost:8000/api/monte-carlo?trials=1000&seed=2026&migration_uncertainty_pp=10&vulnerability_uncertainty=0.1');
+    if (!r.ok) throw new Error('API returned ' + r.status);
+    const data = await r.json();
+    document.getElementById('mc-base').textContent = Number(data.baseline_risk).toFixed(3);
+    document.getElementById('mc-mean').textContent = Number(data.mean).toFixed(3);
+    document.getElementById('mc-p05').textContent = Number(data.p05).toFixed(3);
+    document.getElementById('mc-p95').textContent = Number(data.p95).toFixed(3);
+    status.textContent = '1,000 trials · seed ' + data.seed + ' · σ ' + Number(data.stddev).toFixed(3) + ' · illustrative assumptions only';
+  } catch (error) {
+    status.textContent = 'Monte Carlo unavailable: ' + (error.message || 'backend offline');
+  }
 }
 
 // ================================================================

@@ -1,6 +1,8 @@
+"""Regression tests for cascade propagation and input validation."""
 import networkx as nx
 import pytest
-from quantum_collapse.cascade import cascade
+
+from backend.quantum_collapse.cascade import cascade
 
 
 def sample_graph():
@@ -27,7 +29,7 @@ def test_rejects_invalid_threshold(threshold):
 
 
 def test_rejects_unknown_seed():
-    with pytest.raises(ValueError, match="Unknown seed"):
+    with pytest.raises(ValueError, match="unknown seed"):
         cascade(sample_graph(), ["missing"])
 
 
@@ -35,5 +37,14 @@ def test_duplicate_seeds_are_deduplicated():
     assert cascade(sample_graph(), ["provider", "provider"]) == {"provider", "dependent"}
 
 
-def test_empty_seed_list_returns_no_failures():
-    assert cascade(sample_graph(), []) == set()
+def test_empty_seed_list_is_rejected():
+    with pytest.raises(ValueError, match="at least one"):
+        cascade(sample_graph(), [])
+
+
+@pytest.mark.parametrize("migration", [True, float("nan"), float("inf"), -1, 101, "100"])
+def test_invalid_migration_values_are_rejected(migration):
+    graph = sample_graph()
+    graph.nodes["dependent"]["migration_pct"] = migration
+    with pytest.raises(ValueError, match="migration_pct"):
+        cascade(graph, ["provider"], 100)
