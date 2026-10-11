@@ -1,25 +1,15 @@
-"""Quantum Collapse V1 — FastAPI server.
-
-Run from the backend/ directory:
-    uvicorn server:app --reload
-"""
-
+"""Quantum Collapse V1 — FastAPI server. Run from backend/: uvicorn server:app --reload."""
 from collections import deque
-from typing import List
-
+from typing import Annotated
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-
+from pydantic import BaseModel, Field
 from quantum_collapse.cascade import cascade as _cascade
 from quantum_collapse.risk import global_risk, node_risk
 from quantum_collapse.topology import build_world
 
-app = FastAPI(title="Quantum Collapse", version="1.0.0")
-app.add_middleware(
-    CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
-)
-
+app = FastAPI(title="Quantum Collapse", version="1.1.0")
+app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 _g = build_world()
 
 
@@ -41,19 +31,19 @@ def get_graph():
 
 
 class CascadeRequest(BaseModel):
-    seeds: List[str]
-    resist_threshold: int = 100
+    seeds: list[str] = Field(min_length=1)
+    resist_threshold: Annotated[int, Field(ge=0, le=100)] = 100
 
 
 @app.post("/api/cascade")
 def cascade_endpoint(req: CascadeRequest):
-    for s in req.seeds:
-        if s not in _g.nodes:
-            raise HTTPException(400, f"Unknown node: {s}")
+    for seed in req.seeds:
+        if seed not in _g:
+            raise HTTPException(400, f"Unknown node: {seed}")
     failed_set = _cascade(_g, req.seeds, req.resist_threshold)
     levels = _bfs_levels(req.seeds, failed_set)
     return {
-        "failed": list(failed_set),
+        "failed": sorted(failed_set),
         "levels": levels,
         "failed_count": len(failed_set),
         "total": _g.number_of_nodes(),
@@ -62,32 +52,30 @@ def cascade_endpoint(req: CascadeRequest):
 
 @app.get("/api/sensitivity")
 def sensitivity(seed: str = "GlobalCA"):
-    if seed not in _g.nodes:
+    if seed not in _g:
         raise HTTPException(400, f"Unknown node: {seed}")
     return [
-        {"threshold": thr, "failed": len(_cascade(_g, [seed], resist_threshold=thr))}
-        for thr in range(0, 101, 5)
+        {"threshold": threshold, "failed": len(_cascade(_g, [seed], resist_threshold=threshold))}
+        for threshold in range(0, 101, 5)
     ]
 
 
-def _bfs_levels(seeds: list, failed: set) -> list:
+def _bfs_levels(seeds: list[str], failed: set) -> list[list[str]]:
     """Return failed nodes grouped by BFS depth for cascade animation."""
     visited = set(seeds)
     levels = [list(seeds)]
     queue = deque(seeds)
-    depth = {s: 0 for s in seeds}
-
+    depth = {seed: 0 for seed in seeds}
     while queue:
         node = queue.popleft()
-        for dep in _g.successors(node):
-            if dep in visited or dep not in failed:
+        for dependent in _g.successors(node):
+            if dependent in visited or dependent not in failed:
                 continue
-            visited.add(dep)
-            d = depth[node] + 1
-            depth[dep] = d
-            while len(levels) <= d:
+            visited.add(dependent)
+            level = depth[node] + 1
+            depth[dependent] = level
+            while len(levels) <= level:
                 levels.append([])
-            levels[d].append(dep)
-            queue.append(dep)
-
+            levels[level].append(dependent)
+            queue.append(dependent)
     return levels
