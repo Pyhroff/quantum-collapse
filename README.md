@@ -1,5 +1,6 @@
 # Quantum Collapse
 
+[![CI](https://github.com/Pyhroff/quantum-collapse/actions/workflows/ci.yml/badge.svg)](https://github.com/Pyhroff/quantum-collapse/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-violet.svg)](LICENSE)
 [![Python](https://img.shields.io/badge/Python-3.11%2B-blue?logo=python&logoColor=white)](backend/requirements.txt)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.110%2B-009688?logo=fastapi&logoColor=white)](backend/requirements.txt)
@@ -116,11 +117,6 @@ those knobs, not false precision. See [docs/DESIGN.md](docs/DESIGN.md).
 
 ---
 
-## License
-
-[MIT](LICENSE) © 2026 Pyhroff
-
-
 ## Reproducibility and interpretation
 
 The Monte Carlo endpoint is deterministic for a fixed graph, parameter set, and seed. Its percentiles summarize the specified model perturbations only; they do not quantify real-world uncertainty without empirical calibration data. Record the seed and assumptions when comparing runs.
@@ -167,3 +163,6 @@ xychart-beta
   line [0.7054, 0.5575, 0.3713, 0.1856, 0.0370]
 ```
 
+## License
+
+[MIT](LICENSE) © 2026 Pyhroff
